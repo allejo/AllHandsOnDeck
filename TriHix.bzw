@@ -1,0 +1,519 @@
+#######################################################
+#                                                     #
+#              All Hands On Deck TriHix               #
+#            by Vladimir "allejo" Jimenez             #
+#                                                     #
+#            License: All rights reserved             #
+#                                                     #
+#######################################################
+
+world
+  flagHeight 0
+  noWalls
+end
+
+options
+  -a 0 0
+  -c
+  -j
+  -loadplugin /usr/local/lib/bzflag/AllHandsOnDeck.so
+  -ms 3
+  -mp 0,5,0,0,5,20
+  +r
+  -set _angleTolerance 0.008
+  -set _disableBots true
+  -set _radarLimit 600
+  -set _rejoinTime 0
+  -set _speedChecksLogOnly 1
+  -set _updateThrottleRate 60
+  -set _worldSize 2000
+  -srvmsg ""
+  -srvmsg "___________      .__  ___ ___ .__"
+  -srvmsg "\\__    ___/______|__|/   |   \\|__|__  ___"
+  -srvmsg "  |    |  \\_  __ \\  /    ~    \\  \\  \\/  /"
+  -srvmsg "  |    |   |  | \\/  \\    Y    /  |>    <"
+  -srvmsg "  |____|   |__|  |__|\\___|_  /|__/__/\\_ \\"
+  -srvmsg "                           \\/          \\/"
+  -srvmsg "                              by allejo"
+  -srvmsg ""
+  -tk
+end
+
+base
+  color 1
+  position 0 -272 26
+  size 35 35 4
+  rotation 45
+end
+
+base
+  color 2
+  position 237 135 26
+  size 35 35 4
+  rotation 75
+end
+
+base
+  color 4
+  position -237 135 26
+  size 35 35 4
+  rotation 105
+end
+
+AHOD
+  position 237 135 26
+  size 40 40 30
+end
+
+box
+  position 285 163 45
+  size 7.500000 7.500000 0.100000
+  rotation 29
+  diffuse 0 0 0 0
+end
+
+# Center Bridge connection
+box
+  position 0 267 29
+  size 270 4 1
+  rotation 90
+end
+
+box
+  position 231 -132 29
+  size 270 4 1
+  rotation 150
+end
+
+box
+  position -229 -134 29
+  size 270 4 1
+  rotation 210
+end
+
+zone
+  position 150 100 0
+  size 120 400 0.1
+  rot 30
+  team 1
+  team 2
+  team 4
+end
+
+zone
+  position 0 -150 0
+  size 120 400 0.1
+  rot 90
+  team 1
+  team 2
+  team 4
+end
+
+zone
+  position -150 100 0
+  size 120 400 0.1
+  rot 330
+  team 1
+  team 2
+  team 4
+end
+
+define TeamArea
+  box
+    position 365 -98 0
+    size 30 30 15
+    rotation 15
+  end
+
+  box
+    position 231 -20 14
+    size 130 8 1
+    rot 150
+  end
+
+  box
+    position 120 44 0
+    size 30 30 15
+    rot 15
+  end
+
+  box
+    position 231 -20 14
+    size 140 0.5 16
+    rot 150
+  end
+
+  box
+    position 246 -28.5 0
+    size 19.3 8 15
+    rot 150
+  end
+
+  box
+    position 246 -28.5 0
+    size 19.3 8 15
+    rot 195
+  end
+
+  box
+    position 246 -28.5 0
+    size 19.3 8 15
+    rot 240
+  end
+
+  box
+    position 246 -28.5 0
+    size 19.3 8 15
+    rot 285
+  end
+
+
+
+
+  pyramid
+    position 191 3 0
+    size 2 2 18
+    rotation 150
+  end
+
+  pyramid
+    position 191 3 12
+    size 8 0.500000 2
+    rotation 195
+    flipz
+  end
+
+  pyramid
+    position 191 3 12
+    size 8 0.500000 2
+    rotation 285
+    flipz
+  end
+
+  pyramid
+    position 191 3 0
+    size 8 1 5
+    rotation 195
+  end
+
+  pyramid
+    position 191 3 0
+    size 8 1 5
+    rotation 285
+  end
+
+
+
+  pyramid
+    position 300 -60 0
+    size 2 2 18
+    rotation 150
+  end
+
+  pyramid
+    position 300 -60 12
+    size 8 0.500000 2
+    rotation 195
+    flipz
+  end
+
+  pyramid
+    position 300 -60 12
+    size 8 0.500000 2
+    rotation 285
+    flipz
+  end
+
+  pyramid
+    position 300 -60 0
+    size 8 1 5
+    rotation 195
+  end
+
+  pyramid
+    position 300 -60 0
+    size 8 1 5
+    rotation 285
+  end
+
+
+
+
+  pyramid
+    position 0 -115 0
+    size 7.500000 7.500000 26
+    rotation 0
+  end
+
+  pyramid
+    position 0 -205 0
+    size 7.500000 7.500000 26
+    rotation 0
+  end
+
+  pyramid
+    position -45 -160 0
+    size 7.500000 7.500000 26
+    rotation 0
+  end
+
+  pyramid
+    position 45 -160 0
+    size 7.500000 7.500000 26
+    rotation 0
+  end
+
+  box
+    position 0 -216.500000 29
+    size 450 7.500000 1
+    rotation 0
+  end
+
+  box
+    position 0 -216.500000 29
+    size 7.500000 7.500000 16
+    rotation 0
+  end
+
+  box
+    position -473.00000 -153 29
+    size 72 7. 1
+    rotation 120
+  end
+
+  box
+    position 0 -20 0
+    size 30 30 15
+    rotation 0
+  end
+
+  box
+    position 180 -225 0
+    size 30 30 15
+    rotation 45
+  end
+
+  box
+    position -180 -225 0
+    size 30 30 15
+    rotation 45
+  end
+enddef
+
+define Border
+  box
+    position 0 -225 0
+    size 295 1 5
+    rotation 0
+    texture wall.png
+  end
+
+  box
+    position -195 112 0
+    size 295 1 5
+    rotation 60
+    texture wall.png
+  end
+
+  box
+    position 195 112 0
+    size 295 1 5
+    rotation 120
+    texture wall.png
+  end
+
+  box
+    position -319 -184 0
+    size 48 1 5
+    rotation 120
+    texture wall.png
+  end
+
+  box
+    position 0 367 0
+    size 48 1 5
+    rotation 0
+    texture wall.png
+  end
+
+  box
+    position 319 -184 0
+    size 48 1 5
+    rotation 240
+    texture wall.png
+  end
+
+  box
+    position 0 -225 0
+    size 295 1.100000 100
+    rotation 0
+    diffuse 0 0 0 0
+    shootthrough
+  end
+
+  box
+    position -195 112 0
+    size 295 1.100000 100
+    rotation 60
+    diffuse 0 0 0 0
+    shootthrough
+  end
+
+  box
+    position 195 112 0
+    size 295 1.100000 100
+    rotation 120
+    diffuse 0 0 0 0
+    shootthrough
+  end
+
+  box
+    position -319 -184 0
+    size 48 1.100000 100
+    rotation 120
+    diffuse 0 0 0 0
+    shootthrough
+  end
+
+  box
+    position 0 367 0
+    size 48 1.100000 100
+    rotation 0
+    diffuse 0 0 0 0
+    shootthrough
+  end
+
+  box
+    position 319 -184 0
+    size 48 1.100000 100
+    rotation 240
+    diffuse 0 0 0 0
+    shootthrough
+  end
+enddef
+
+group TeamArea
+  position 0 -112 0
+  size 1 1 1
+  rotation 0
+end
+
+group TeamArea
+  position 98 55 0
+  size 1 1 1
+  rotation 120
+end
+
+group TeamArea
+  position -98 55 0
+  size 1 1 1
+  rotation 240
+end
+
+group Border
+  position 0 0 0
+  size 1.500000 1.500000 1.500000
+  rotation 0
+end
+
+teleporter RG_Bot
+  position -470 -270 0
+  size 0.560000 4.480000 27.760000
+  rotation 30
+  border 1.120000
+end
+
+teleporter RG_Top
+  position -470 -270 30
+  size 0.560000 4.480000 15
+  rotation 30
+  border 1.120000
+end
+
+link
+  from RG_Bot:f
+  to RG_Top:f
+end
+
+link
+  from RG_Bot:b
+  to RG_Top:b
+end
+
+link
+  from RG_Top:f
+  to RG_Bot:f
+end
+
+link
+  from RG_Top:b
+  to RG_Bot:b
+end
+
+teleporter RP_Bot
+  position 470 -270 0
+  size 0.560000 4.480000 27.760000
+  rotation 150
+  border 1.120000
+end
+
+teleporter RP_Top
+  position 470 -270 30
+  size 0.560000 4.480000 15
+  rotation 150
+  border 1.120000
+end
+
+link
+  from RP_Bot:f
+  to RP_Top:f
+end
+
+link
+  from RP_Bot:b
+  to RP_Top:b
+end
+
+link
+  from RP_Top:f
+  to RP_Bot:f
+end
+
+link
+  from RP_Top:b
+  to RP_Bot:b
+end
+
+teleporter PG_Bot
+  position 0 540 0
+  size 0.560000 4.480000 27.760000
+  rotation 90
+  border 1.120000
+end
+
+teleporter PG_Top
+  position 0 540 30
+  size 0.560000 4.480000 15
+  rotation 90
+  border 1.120000
+end
+
+link
+  from PG_Bot:f
+  to PG_Top:f
+end
+
+link
+  from PG_Bot:b
+  to PG_Top:b
+end
+
+link
+  from PG_Top:f
+  to PG_Bot:f
+end
+
+link
+  from PG_Top:b
+  to PG_Bot:b
+end
