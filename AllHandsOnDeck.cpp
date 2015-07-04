@@ -19,7 +19,7 @@ All Hands On Deck
 #include "bzfsAPI.h"
 #include "plugin_utils.h"
 
-static void killAllPlayers()
+static void killAllPlayers ()
 {
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -35,7 +35,7 @@ static void killAllPlayers()
     bz_deleteIntList(playerList);
 }
 
-static void sendToPlayers(bz_eTeamType team, std::string message)
+static void sendToPlayers (bz_eTeamType team, std::string message)
 {
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -51,10 +51,8 @@ static void sendToPlayers(bz_eTeamType team, std::string message)
     bz_deleteIntList(playerList);
 }
 
-static std::string teamColorLiteral(bz_eTeamType teamColor)
+static std::string teamColorLiteral (bz_eTeamType teamColor)
 {
-    std::string color;
-
     switch (teamColor)
     {
         case eBlueTeam:
@@ -74,9 +72,25 @@ static std::string teamColorLiteral(bz_eTeamType teamColor)
     }
 }
 
-static bool isTeamFlag (std::string flagAbbr)
+static std::string teamToTeamFlag (bz_eTeamType team)
 {
-    return (flagAbbr == "R*" || flagAbbr == "G*" || flagAbbr == "B*" || flagAbbr == "P*");
+  switch (team)
+  {
+    case eBlueTeam:
+      return "B*";
+
+    case eGreenTeam:
+      return "G*";
+
+    case ePurpleTeam:
+      return "P*";
+
+    case eRedTeam:
+      return "R*";
+
+    default:
+      return "";
+  }
 }
 
 class AhodZone : public bz_CustomZoneObject
@@ -96,7 +110,7 @@ public:
 
     virtual bool isInsideAhodZone (int playerID);
     virtual bool isEntireTeamOnBase (bz_eTeamType team);
-    virtual bool doesTeamHaveEnemyFlag (bz_eTeamType team);
+    virtual bool doesTeamHaveEnemyFlag (bz_eTeamType team, bz_eTeamType enemy);
 
     AhodZone ahodZone;
 
@@ -190,20 +204,35 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
 
         case bz_eTickEvent: // This event is called once for each BZFS main loop
         {
-            if ((isEntireTeamOnBase(teamOne) || isEntireTeamOnBase(teamTwo)) && (doesTeamHaveEnemyFlag(teamOne) || doesTeamHaveEnemyFlag(teamTwo)))
-            {
-                bool teamOneWon = isEntireTeamOnBase(teamOne) && doesTeamHaveEnemyFlag(teamOne);
+	  // AHOD is only enabled if there are at least 2 players per team
+	  if (bz_getTeamCount(teamOne) < 2 || bz_getTeamCount(teamTwo) < 2)
+	  {
+	    return;
+	  }
 
-                bz_eTeamType victor = (teamOneWon) ? teamOne : teamTwo;
-                bz_eTeamType loser  = (teamOneWon) ? teamTwo : teamOne;
+	  bool teamOneAhod = isEntireTeamOnBase(teamOne);
+	  bool teamTwoAhod = isEntireTeamOnBase(teamTwo);
 
-                killAllPlayers();
-                bz_incrementTeamWins(victor, 1);
-                bz_incrementTeamLosses(loser, 1);
-                bz_resetFlags(false);
+	    if (teamOneAhod || teamTwoAhod)
+	    {
+	      bool teamOneHasEnemyFlag = doesTeamHaveEnemyFlag(teamOne, teamTwo);
+	      bool teamTwoHasEnemyFlag = doesTeamHaveEnemyFlag(teamTwo, teamOne);
 
-                sendToPlayers(loser, std::string("Team flag captured by the " + teamColorLiteral(victor) + " team!"));
-                sendToPlayers(victor, std::string("Great team work! Don't let them capture your flag!"));
+	      if (teamOneHasEnemyFlag || teamTwoHasEnemyFlag) {
+		if ((teamOneAhod && teamOneHasEnemyFlag) || (teamTwoAhod && teamTwoHasEnemyFlag))
+		{
+		  bz_eTeamType victor = (teamOneHasEnemyFlag) ? teamOne : teamTwo;
+		  bz_eTeamType loser  = (teamOneHasEnemyFlag) ? teamTwo : teamOne;
+
+		  killAllPlayers();
+		  bz_incrementTeamWins(victor, 1);
+		  bz_incrementTeamLosses(loser, 1);
+		  bz_resetFlags(false);
+
+		  sendToPlayers(loser, std::string("Team flag captured by the " + teamColorLiteral(victor) + " team!"));
+		  sendToPlayers(victor, std::string("Great team work! Don't let them capture your flag!"));
+		}
+	      }
             }
         }
         break;
@@ -212,7 +241,7 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
     }
 }
 
-bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team)
+bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team, bz_eTeamType enemy)
 {
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -221,19 +250,14 @@ bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team)
 
     for (unsigned int i = 0; i < playerList->size(); i++ )
     {
-        bz_BasePlayerRecord* pr = bz_getPlayerByIndex(playerList->get(i));
-        std::string teamFlag = pr->currentFlag.c_str();
+        int playerID = playerList->get(i);
+        const char* cFlag = bz_getPlayerFlag(playerID);
+        std::string teamFlag = (cFlag == NULL) ? "" : cFlag;
 
-        if (pr->team == team && isTeamFlag(teamFlag))
+        if (bz_getPlayerTeam(playerID) == team && teamFlag == teamToTeamFlag(enemy))
         {
             doesHaveEnemyFlag = true;
-        }
-
-        bz_freePlayerRecord(pr);
-
-        if (doesHaveEnemyFlag)
-        {
-            break;
+	    break;
         }
     }
 
@@ -259,6 +283,11 @@ bool AllHandsOnDeck::isInsideAhodZone (int playerID)
 
 bool AllHandsOnDeck::isEntireTeamOnBase (bz_eTeamType team)
 {
+  if (bz_getTeamCount(teamTwo) < 2)
+  {
+    return false;
+  }
+
     bool entireTeamOnBase = true;
 
     bz_APIIntList *playerList = bz_newIntList();
@@ -268,7 +297,7 @@ bool AllHandsOnDeck::isEntireTeamOnBase (bz_eTeamType team)
     {
         int playerID = playerList->get(i);
 
-        if (bz_getPlayerTeam(playerID) == team && isInsideAhodZone(playerID))
+        if (bz_getPlayerTeam(playerID) == team && !isInsideAhodZone(playerID))
         {
             entireTeamOnBase = false;
             break;

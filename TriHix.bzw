@@ -21,7 +21,7 @@ options
   -mp 0,5,0,0,5,20
   +r
   -set _angleTolerance 0.008
-  -set _disableBots true
+  #-set _disableBots true
   -set _radarLimit 600
   -set _rejoinTime 0
   -set _speedChecksLogOnly 1
