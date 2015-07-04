@@ -1,4 +1,4 @@
-All Hands On Deck (AHOD) ![Minimum BZFlag Version](https://img.shields.io/badge/BZFlag-v2.4.3+-blue.svg)
+All Hands On Deck (AHOD) [![Current Release](https://img.shields.io/badge/release-v1.0.0-orange.svg)](https://github.com/allejo/AllHandsOnDeck/releases/tag/v1.0.0) ![Minimum BZFlag Version](https://img.shields.io/badge/BZFlag-v2.4.3+-blue.svg)
 ================
 
 Attention all tankers! All hands on deck!
