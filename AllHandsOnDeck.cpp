@@ -233,7 +233,7 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
                         bz_resetFlags(false);
 
                         sendToPlayers(loser, std::string("Team flag captured by the " + teamColorLiteral(victor) + " team!"));
-                        sendToPlayers(victor, std::string("Great team work! Don't let them capture your flag!"));
+                        sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
                     }
                 }
             }
