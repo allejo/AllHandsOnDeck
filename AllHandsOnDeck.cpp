@@ -186,7 +186,7 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             bz_sendTextMessage(playerID, playerID, "  --- How To Play ---");
             bz_sendTextMessage(playerID, playerID, "     Take the enemy flag to the neutral (green) base along with your");
             bz_sendTextMessage(playerID, playerID, "     entire team in order to cap. If any player is missing, you will");
-            bz_sendTextMessage(playerID, playerID, "     not be able to cap. Team work matters!");
+            bz_sendTextMessage(playerID, playerID, "     not be able to cap. Teamwork matters!");
             bz_sendTextMessage(playerID, playerID, " ");
             bz_sendTextMessage(playerID, playerID, "********************************************************************");
         }
