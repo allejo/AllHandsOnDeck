@@ -88,23 +88,23 @@ static std::string teamColorLiteral (bz_eTeamType teamColor)
 
 static std::string teamToTeamFlag (bz_eTeamType team)
 {
-  switch (team)
-  {
-    case eBlueTeam:
-      return "B*";
+    switch (team)
+    {
+        case eBlueTeam:
+            return "B*";
 
-    case eGreenTeam:
-      return "G*";
+        case eGreenTeam:
+            return "G*";
 
-    case ePurpleTeam:
-      return "P*";
+        case ePurpleTeam:
+            return "P*";
 
-    case eRedTeam:
-      return "R*";
+        case eRedTeam:
+            return "R*";
 
-    default:
-      return "";
-  }
+        default:
+            return "";
+    }
 }
 
 class AhodZone : public bz_CustomZoneObject
