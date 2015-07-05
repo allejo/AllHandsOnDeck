@@ -14,6 +14,7 @@ end
 
 options
   -a 0 0
+  -autoTeam
   -c
   -j
   -loadplugin /usr/local/lib/bzflag/AllHandsOnDeck.so
