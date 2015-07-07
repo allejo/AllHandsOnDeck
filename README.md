@@ -3,15 +3,13 @@ All Hands On Deck (AHOD) [![Current Release](https://img.shields.io/badge/releas
 
 Attention all tankers! All hands on deck!
 
-Originally introduced as a new game mode by trepan, this game mode requires an insane amount of team work, more than BZFlag leagues. In this game mode, all of the members of a team must be in the AHOD zone with the enemy flag in order to capture the flag. If just one team member is missing, there is no capture!
+Originally introduced as a new game mode by [trepan](http://forums.bzflag.org/viewtopic.php?f=64&t=6449&p=64686&hilit=ahod#p64686), this game mode requires an insane amount of team work, more than BZFlag leagues. In this game mode, all of the members of a team must be in the AHOD zone with the enemy flag in order to capture the flag. If just one team member is missing, there is no capture!
 
 ## Author
 
 Vladimir "allejo" Jimenez
 
 ## Compiling
-
-Regardless of the size, complexity, and size of this plugin, the plug-in can still be easily compiled with a simple `make`.
 
 ### Requirements
 
