@@ -23,18 +23,18 @@ Vladimir "allejo" Jimenez
         git clone -b 2.4 https://github.com/BZFlag-Dev/bzflag.git
 
 2. Go into the newly checked out source code and then the plugins directory.
-        
+                
         cd bzflag/plugins
 
-3. Run a git clone of this repository from within the plugins directory. This should have created a new `AllHandsOnDeck` directory within the plugins directory. Notice, you will be checking out the 'release' branch will always contain the latest release of the plugin to allow for easy updates. If you are running a test port and would like the latest development build, use the 'master' branch instead of 'release.'
+3. Run a git clone of this repository from within the plugins directory. This will create a new `AllHandsOnDeck` directory within the plugins directory. Notice, you will be checking out the 'release' branch which will always contain the latest stable release of the plugin to allow for easy updates. If you are running a test port and would like the latest development build, use the 'master' branch instead of 'release.'
 
         git clone -b release https://github.com/allejo/AllHandsOnDeck.git
 
-4. The latest BZFlag trunk will contain a script called 'addToBuild.sh' and it will allow you to add the plugin to the build system.
+4. Use the 'addToBuild.sh' script to add the plugin to the build system.
 
         sh addToBuild.sh AllHandsOnDeck
 
-5. Instruct the build system to generate a Makefile and then compile and install the plugin.
+5. Instruct the build system to generate a Makefile, then compile, and install the plugin.
 
         cd ..; ./autogen.sh; ./configure; make; make install;
 
@@ -45,7 +45,7 @@ This plug-in has no configuration options. It only contains an `AHOD` map object
 ### Loading the plug-in
 
 ```
--loadplugin /usr/local/lib/bzflag/AllHandsOnDeck.so
+-loadplugin /path/to/AllHandsOnDeck.so
 ```
 
 ### BZW Example
@@ -56,6 +56,7 @@ The AHOD zone uses the [bz_CustomZoneObject](http://forums.bzflag.org/viewtopic.
 ahod
   position 0 0 0
   size 40 40 30
+  rotation 45
 end
 ```
 
@@ -65,4 +66,4 @@ end
 
 ### TriHix License
 
-I have included TriHix in this repository since this map and the plug-in go together; however, the map itself is not licensed to be used or hosted without explicit permission.
+I have included TriHix in this repository since this map and the plug-in go together; however, the map itself is not licensed to be used or hosted without permission.
