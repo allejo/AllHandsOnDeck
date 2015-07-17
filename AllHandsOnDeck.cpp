@@ -16,6 +16,7 @@ All Hands On Deck
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <memory>
 #include <sstream>
 
 #include "bzfsAPI.h"
@@ -296,15 +297,13 @@ bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team, bz_eTeamType enemy
 
 bool AllHandsOnDeck::isInsideAhodZone (int playerID)
 {
-    bz_BasePlayerRecord* pr = bz_getPlayerByIndex(playerID);
+    std::unique_ptr<bz_BasePlayerRecord> pr(bz_getPlayerByIndex(playerID));
     bool isInside = false;
 
     if (pr && ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling)
     {
         isInside = true;
     }
-
-    bz_freePlayerRecord(pr);
 
     return isInside;
 }
