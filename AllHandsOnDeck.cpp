@@ -16,8 +16,10 @@ All Hands On Deck
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <fstream>
 #include <memory>
 #include <sstream>
+#include <string>
 
 #include "bzfsAPI.h"
 
@@ -108,10 +110,29 @@ static std::string teamToTeamFlag (bz_eTeamType team)
     }
 }
 
+static void fileToVector (const char* filePath, std::vector<std::string> &storage)
+{
+    std::ifstream file(filePath);
+    std::string str;
+
+    while (std::getline(file, str))
+    {
+        if (str.empty())
+        {
+            str = " ";
+        }
+
+        storage.push_back(str);
+    }
+}
+
 class AhodZone : public bz_CustomZoneObject
 {
 public:
-    AhodZone() : bz_CustomZoneObject() {}
+    AhodZone() : bz_CustomZoneObject(),
+        defined(false) {}
+
+    bool defined;
 };
 
 class AllHandsOnDeck : public bz_Plugin, bz_CustomMapObjectHandler
@@ -130,6 +151,9 @@ public:
     AhodZone ahodZone;
 
     bz_eTeamType teamOne, teamTwo;
+
+    bool enabled;
+    std::vector<std::string> introMessage;
 };
 
 BZ_PLUGIN(AllHandsOnDeck)
@@ -149,10 +173,11 @@ const char* AllHandsOnDeck::Name (void)
     return pluginBuild.c_str();
 }
 
-void AllHandsOnDeck::Init (const char* /* commandLine */)
+void AllHandsOnDeck::Init (const char* commandLine)
 {
     bz_registerCustomMapObject("AHOD", this);
 
+    enabled = false;
     teamOne = eNoTeam;
     teamTwo = eNoTeam;
 
@@ -165,10 +190,16 @@ void AllHandsOnDeck::Init (const char* /* commandLine */)
         }
     }
 
+    if (commandLine)
+    {
+        fileToVector(commandLine, introMessage);
+    }
+
     Register(bz_eAllowCTFCaptureEvent);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
+    Register(bz_eWorldFinalized);
 }
 
 void AllHandsOnDeck::Cleanup (void)
@@ -186,6 +217,7 @@ bool AllHandsOnDeck::MapObject (bz_ApiString object, bz_CustomMapObjectInfo *dat
     }
 
     ahodZone.handleDefaultOptions(data);
+    ahodZone.defined = true;
 
     return true;
 }
@@ -207,14 +239,24 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             bz_PlayerJoinPartEventData_V1* joinData = (bz_PlayerJoinPartEventData_V1*)eventData;
             int playerID = joinData->playerID;
 
-            bz_sendTextMessage(playerID, playerID, "********************************************************************");
-            bz_sendTextMessage(playerID, playerID, " ");
-            bz_sendTextMessage(playerID, playerID, "  --- How To Play ---");
-            bz_sendTextMessage(playerID, playerID, "     Take the enemy flag to the neutral (green) base along with your");
-            bz_sendTextMessage(playerID, playerID, "     entire team in order to cap. If any player is missing, you will");
-            bz_sendTextMessage(playerID, playerID, "     not be able to cap. Teamwork matters!");
-            bz_sendTextMessage(playerID, playerID, " ");
-            bz_sendTextMessage(playerID, playerID, "********************************************************************");
+            if (introMessage.empty())
+            {
+                bz_sendTextMessage(playerID, playerID, "********************************************************************");
+                bz_sendTextMessage(playerID, playerID, " ");
+                bz_sendTextMessage(playerID, playerID, "  --- How To Play ---");
+                bz_sendTextMessage(playerID, playerID, "     Take the enemy flag to the neutral base along with your entire");
+                bz_sendTextMessage(playerID, playerID, "     team in order to cap. If any player is missing, you will not be");
+                bz_sendTextMessage(playerID, playerID, "     able to cap. Teamwork matters!");
+                bz_sendTextMessage(playerID, playerID, " ");
+                bz_sendTextMessage(playerID, playerID, "********************************************************************");
+            }
+            else
+            {
+                for (auto line : introMessage)
+                {
+                    bz_sendTextMessage(playerID, playerID, line.c_str());
+                }
+            }
         }
         break;
 
@@ -235,7 +277,19 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             // AHOD is only enabled if there are at least 2 players per team
             if (bz_getTeamCount(teamOne) < 2 || bz_getTeamCount(teamTwo) < 2)
             {
+                if (enabled)
+                {
+                    bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "All Hands on Deck! has been disabled. Minimum of 2v2 is required.");
+                    enabled = false;
+                }
+
                 return;
+            }
+
+            if (!enabled)
+            {
+                bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "All Hands on Deck! has been enabled.");
+                enabled = true;
             }
 
             bool teamOneAhod = isEntireTeamOnBase(teamOne);
@@ -262,6 +316,15 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
                         sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
                     }
                 }
+            }
+        }
+        break;
+
+        case bz_eWorldFinalized:
+        {
+            if (!ahodZone.defined)
+            {
+               bz_debugMessage(0, "DEBUG :: AllHandsOnDeck :: There was no AHOD zone defined for this AHOD style map.");
             }
         }
         break;
