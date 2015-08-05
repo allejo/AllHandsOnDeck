@@ -361,14 +361,13 @@ bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team, bz_eTeamType enemy
 bool AllHandsOnDeck::isInsideAhodZone (int playerID)
 {
     std::unique_ptr<bz_BasePlayerRecord> pr(bz_getPlayerByIndex(playerID));
-    bool isInside = false;
 
     if (pr && ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling)
     {
-        isInside = true;
+        return true;
     }
 
-    return isInside;
+    return false;
 }
 
 bool AllHandsOnDeck::isEntireTeamOnBase (bz_eTeamType team)
