@@ -29,8 +29,8 @@ const std::string PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 0;
-const int REV = 0;
-const int BUILD = 1;
+const int REV = 1;
+const int BUILD = 17;
 
 static void killAllPlayers ()
 {
@@ -257,6 +257,11 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
                     bz_sendTextMessage(playerID, playerID, line.c_str());
                 }
             }
+
+            if (!enabled)
+            {
+                bz_sendTextMessage(BZ_SERVER, playerID, "All Hands on Deck! has been disabled. Minimum of 2v2 is required.");
+            }
         }
         break;
 
@@ -372,7 +377,7 @@ bool AllHandsOnDeck::isInsideAhodZone (int playerID)
 
 bool AllHandsOnDeck::isEntireTeamOnBase (bz_eTeamType team)
 {
-    if (bz_getTeamCount(teamTwo) < 2)
+    if (bz_getTeamCount(team) < 2)
     {
         return false;
     }
