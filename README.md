@@ -1,5 +1,7 @@
-All Hands On Deck (AHOD) [![Current Release](https://img.shields.io/badge/release-v1.0.0-orange.svg)](https://github.com/allejo/AllHandsOnDeck/releases/tag/v1.0.0) ![Minimum BZFlag Version](https://img.shields.io/badge/BZFlag-v2.4.3+-blue.svg)
+All Hands On Deck! (AHOD)
 ================
+[![Current Release](https://img.shields.io/badge/release-v1.0.1-orange.svg)](https://github.com/allejo/AllHandsOnDeck/releases/tag/v1.0.1)
+![Minimum BZFlag Version](https://img.shields.io/badge/BZFlag-v2.4.3+-blue.svg)
 
 Attention all tankers! All hands on deck!
 
@@ -16,36 +18,16 @@ Vladimir "allejo" Jimenez
 - BZFlag 2.4.3+ (*latest version available on GitHub is recommended*)
 - C++11
 
-### How to Compile
-
-1. Check out the 2.4.x BZFlag source code from GitHub, if you do not already have it on your server.
-
-        git clone -b 2.4 https://github.com/BZFlag-Dev/bzflag.git
-
-2. Go into the newly checked out source code and then the plugins directory.
-                
-        cd bzflag/plugins
-
-3. Run a git clone of this repository from within the plugins directory. This will create a new `AllHandsOnDeck` directory within the plugins directory. Notice, you will be checking out the 'release' branch which will always contain the latest stable release of the plugin to allow for easy updates. If you are running a test port and would like the latest development build, use the 'master' branch instead of 'release.'
-
-        git clone -b release https://github.com/allejo/AllHandsOnDeck.git
-
-4. Use the 'addToBuild.sh' script to add the plugin to the build system.
-
-        sh addToBuild.sh AllHandsOnDeck
-
-5. Instruct the build system to generate a Makefile, then compile, and install the plugin.
-
-        cd ..; ./autogen.sh; ./configure; make; make install;
-
 ## Usage
 
-This plug-in has no configuration options. It only contains an `AHOD` map object.
+This plug-in introduces an `AHOD` map object. Only one `AHOD` object may be defined in a map due to the gameplay; creating more than one object may lead to unintended side effects.
+
+The plug-in takes one command line parameter and that's the path to a text file. The text file is read and shown to players on join explaining how AHOD works.
 
 ### Loading the plug-in
 
 ```
--loadplugin /path/to/AllHandsOnDeck.so
+-loadplugin /path/to/AllHandsOnDeck.so,welcome.txt
 ```
 
 ### BZW Example
