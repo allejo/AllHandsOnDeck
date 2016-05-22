@@ -1,6 +1,6 @@
 /*
 All Hands On Deck
-    Copyright (C) 2015 Vladimir "allejo" Jimenez
+    Copyright (C) 2016 Vladimir "allejo" Jimenez
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -29,8 +29,8 @@ const std::string PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 0;
-const int REV = 1;
-const int BUILD = 17;
+const int REV = 2;
+const int BUILD = 20;
 
 static void killAllPlayers ()
 {
@@ -41,10 +41,12 @@ static void killAllPlayers ()
     {
         int playerID = playerList->get(i);
 
-        if (bz_getPlayerByIndex(playerID)->spawned && bz_killPlayer(playerID, true))
+        if (bz_getPlayerByIndex(playerID)->spawned && bz_killPlayer(playerID, false))
         {
-            bz_setPlayerLosses(playerID, bz_getPlayerLosses(playerID) - 1);
+            bz_incrementPlayerLosses(playerID, -1);
         }
+
+        bz_setPlayerSpawnAtBase(playerID, true);
     }
 
     bz_deleteIntList(playerList);
