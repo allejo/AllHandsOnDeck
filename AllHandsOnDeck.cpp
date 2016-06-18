@@ -29,8 +29,8 @@ const std::string PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 0;
-const int REV = 2;
-const int BUILD = 20;
+const int REV = 3;
+const int BUILD = 21;
 
 static void killAllPlayers ()
 {
@@ -146,8 +146,8 @@ public:
     virtual void Cleanup (void);
     virtual bool MapObject (bz_ApiString object, bz_CustomMapObjectInfo *data);
 
-    virtual bool isInsideAhodZone (int playerID);
-    virtual bool isEntireTeamOnBase (bz_eTeamType team);
+    virtual bool isPlayerOnDeck (int playerID);
+    virtual bool enoughHandsOnDeck (bz_eTeamType team);
     virtual bool doesTeamHaveEnemyFlag (bz_eTeamType team, bz_eTeamType enemy);
 
     AhodZone ahodZone;
@@ -155,6 +155,7 @@ public:
     bz_eTeamType teamOne, teamTwo;
 
     bool enabled;
+    double ahodPercentage;
     std::vector<std::string> introMessage;
 };
 
@@ -198,10 +199,17 @@ void AllHandsOnDeck::Init (const char* commandLine)
     }
 
     Register(bz_eAllowCTFCaptureEvent);
+    Register(bz_eBZDBChange);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
     Register(bz_eWorldFinalized);
+    
+    // Default to 100% of the team
+    if (!bz_BZDBItemExists("_ahodPercentage"))
+    {
+        bz_setBZDBDouble("_ahodPercentage", 1);
+    }
 }
 
 void AllHandsOnDeck::Cleanup (void)
@@ -233,6 +241,22 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             bz_AllowCTFCaptureEventData_V1* allowCtfData = (bz_AllowCTFCaptureEventData_V1*)eventData;
 
             allowCtfData->allow = false;
+        }
+        break;
+            
+        case bz_eBZDBChange:
+        {
+            bz_BZDBChangeData_V1* bzdbData = (bz_BZDBChangeData_V1*)eventData;
+            
+            if (bzdbData->key == "_ahodPercentage")
+            {
+                double proposedValue = std::atof(bzdbData->value.c_str());
+                
+                if (proposedValue > 0 && proposedValue <= 1)
+                {
+                    ahodPercentage = proposedValue;
+                }
+            }
         }
         break;
 
@@ -271,7 +295,7 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
         {
             bz_PlayerPausedEventData_V1* pauseData = (bz_PlayerPausedEventData_V1*)eventData;
 
-            if (isInsideAhodZone(pauseData->playerID) && pauseData->pause)
+            if (isPlayerOnDeck(pauseData->playerID) && pauseData->pause)
             {
                 bz_killPlayer(pauseData->playerID, false);
                 bz_sendTextMessage(BZ_SERVER, pauseData->playerID, "Pausing in the AHOD zone is not permitted.");
@@ -299,8 +323,8 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
                 enabled = true;
             }
 
-            bool teamOneAhod = isEntireTeamOnBase(teamOne);
-            bool teamTwoAhod = isEntireTeamOnBase(teamTwo);
+            bool teamOneAhod = enoughHandsOnDeck(teamOne);
+            bool teamTwoAhod = enoughHandsOnDeck(teamTwo);
 
             if (teamOneAhod || teamTwoAhod)
             {
@@ -365,26 +389,22 @@ bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team, bz_eTeamType enemy
     return doesHaveEnemyFlag;
 }
 
-bool AllHandsOnDeck::isInsideAhodZone (int playerID)
+bool AllHandsOnDeck::isPlayerOnDeck (int playerID)
 {
     std::unique_ptr<bz_BasePlayerRecord> pr(bz_getPlayerByIndex(playerID));
 
-    if (pr && ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling)
-    {
-        return true;
-    }
-
-    return false;
+    return (pr && ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
 }
 
-bool AllHandsOnDeck::isEntireTeamOnBase (bz_eTeamType team)
+// Check to see if there are enough players of a specified team in the AHOD zone
+bool AllHandsOnDeck::enoughHandsOnDeck (bz_eTeamType team)
 {
-    if (bz_getTeamCount(team) < 2)
+    int teamCount = 0, teamTotal = bz_getTeamCount(team);
+    
+    if (teamTotal < 2)
     {
         return false;
     }
-
-    bool entireTeamOnBase = true;
 
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -393,14 +413,13 @@ bool AllHandsOnDeck::isEntireTeamOnBase (bz_eTeamType team)
     {
         int playerID = playerList->get(i);
 
-        if (bz_getPlayerTeam(playerID) == team && !isInsideAhodZone(playerID))
+        if (bz_getPlayerTeam(playerID) == team && isPlayerOnDeck(playerID))
         {
-            entireTeamOnBase = false;
-            break;
+            teamCount++;
         }
     }
 
     bz_deleteIntList(playerList);
 
-    return entireTeamOnBase;
+    return ((teamCount / (double)teamTotal) >= ahodPercentage);
 }
