@@ -29,8 +29,8 @@ const std::string PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 0;
-const int REV = 3;
-const int BUILD = 21;
+const int REV = 2;
+const int BUILD = 22;
 
 static void killAllPlayers ()
 {
