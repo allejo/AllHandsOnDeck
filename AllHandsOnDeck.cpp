@@ -16,15 +16,14 @@ All Hands On Deck
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <fstream>
 #include <memory>
-#include <sstream>
-#include <string>
 
 #include "bzfsAPI.h"
+#include "plugin_files.h"
+#include "plugin_utils.h"
 
 // Define plugin name
-const std::string PLUGIN_NAME = "All Hands On Deck!";
+const char* PLUGIN_NAME = "All Hands On Deck!";
 
 // Define plugin version numbering
 const int MAJOR = 1;
@@ -70,27 +69,6 @@ static void sendToPlayers (bz_eTeamType team, std::string message)
     bz_deleteIntList(playerList);
 }
 
-static std::string teamColorLiteral (bz_eTeamType teamColor)
-{
-    switch (teamColor)
-    {
-        case eBlueTeam:
-            return "Blue";
-
-        case eGreenTeam:
-            return "Green";
-
-        case ePurpleTeam:
-            return "Purple";
-
-        case eRedTeam:
-            return "Red";
-
-        default:
-            return "Rogue";
-    }
-}
-
 static std::string teamToTeamFlag (bz_eTeamType team)
 {
     switch (team)
@@ -112,22 +90,6 @@ static std::string teamToTeamFlag (bz_eTeamType team)
     }
 }
 
-static void fileToVector (const char* filePath, std::vector<std::string> &storage)
-{
-    std::ifstream file(filePath);
-    std::string str;
-
-    while (std::getline(file, str))
-    {
-        if (str.empty())
-        {
-            str = " ";
-        }
-
-        storage.push_back(str);
-    }
-}
-
 class AhodZone : public bz_CustomZoneObject
 {
 public:
@@ -146,6 +108,7 @@ public:
     virtual void Cleanup (void);
     virtual bool MapObject (bz_ApiString object, bz_CustomMapObjectInfo *data);
 
+private:
     virtual bool isPlayerOnDeck (int playerID);
     virtual bool enoughHandsOnDeck (bz_eTeamType team);
     virtual bool doesTeamHaveEnemyFlag (bz_eTeamType team, bz_eTeamType enemy);
@@ -155,7 +118,6 @@ public:
     bz_eTeamType teamOne, teamTwo;
 
     bool enabled;
-    double ahodPercentage;
     std::vector<std::string> introMessage;
 };
 
@@ -163,17 +125,14 @@ BZ_PLUGIN(AllHandsOnDeck)
 
 const char* AllHandsOnDeck::Name (void)
 {
-    static std::string pluginBuild = "";
+    static const char* pluginBuild;
 
-    if (!pluginBuild.size())
+    if (pluginBuild && !pluginBuild[0])
     {
-        std::ostringstream pluginBuildStream;
-
-        pluginBuildStream << PLUGIN_NAME << " " << MAJOR << "." << MINOR << "." << REV << " (" << BUILD << ")";
-        pluginBuild = pluginBuildStream.str();
+        pluginBuild = bz_format("%s %d.%d.%d (%d)", PLUGIN_NAME, MAJOR, MINOR, REV, BUILD);
     }
 
-    return pluginBuild.c_str();
+    return pluginBuild;
 }
 
 void AllHandsOnDeck::Init (const char* commandLine)
@@ -195,11 +154,10 @@ void AllHandsOnDeck::Init (const char* commandLine)
 
     if (commandLine)
     {
-        fileToVector(commandLine, introMessage);
+        introMessage = getFileTextLines(commandLine);
     }
 
     Register(bz_eAllowCTFCaptureEvent);
-    Register(bz_eBZDBChange);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
@@ -241,22 +199,6 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             bz_AllowCTFCaptureEventData_V1* allowCtfData = (bz_AllowCTFCaptureEventData_V1*)eventData;
 
             allowCtfData->allow = false;
-        }
-        break;
-            
-        case bz_eBZDBChange:
-        {
-            bz_BZDBChangeData_V1* bzdbData = (bz_BZDBChangeData_V1*)eventData;
-            
-            if (bzdbData->key == "_ahodPercentage")
-            {
-                double proposedValue = std::atof(bzdbData->value.c_str());
-                
-                if (proposedValue > 0 && proposedValue <= 1)
-                {
-                    ahodPercentage = proposedValue;
-                }
-            }
         }
         break;
 
@@ -343,7 +285,7 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
                         bz_incrementTeamLosses(loser, 1);
                         bz_resetFlags(false);
 
-                        sendToPlayers(loser, std::string("Team flag captured by the " + teamColorLiteral(victor) + " team!"));
+                        sendToPlayers(loser, bz_format("Team flag captured by the %s team!", bzu_GetTeamName(victor)));
                         sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
                     }
                 }
@@ -391,9 +333,18 @@ bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team, bz_eTeamType enemy
 
 bool AllHandsOnDeck::isPlayerOnDeck (int playerID)
 {
-    std::unique_ptr<bz_BasePlayerRecord> pr(bz_getPlayerByIndex(playerID));
+    bz_BasePlayerRecord *pr = bz_getPlayerByIndex(playerID);
 
-    return (pr && ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
+    if (!pr)
+    {
+        return false;
+    }
+
+    bool playerIsOnDeck = (ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
+
+    bz_freePlayerRecord(pr);
+
+    return playerIsOnDeck;
 }
 
 // Check to see if there are enough players of a specified team in the AHOD zone
@@ -421,5 +372,5 @@ bool AllHandsOnDeck::enoughHandsOnDeck (bz_eTeamType team)
 
     bz_deleteIntList(playerList);
 
-    return ((teamCount / (double)teamTotal) >= ahodPercentage);
+    return ((teamCount / (double)teamTotal) >= bz_getBZDBDouble("_ahodPercentage"));
 }
