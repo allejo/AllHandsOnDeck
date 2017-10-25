@@ -1,6 +1,6 @@
 /*
 All Hands On Deck
-    Copyright (C) 2016 Vladimir "allejo" Jimenez
+    Copyright (C) 2015-2017 Vladimir "allejo" Jimenez
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,11 +27,11 @@ const char* PLUGIN_NAME = "All Hands On Deck!";
 
 // Define plugin version numbering
 const int MAJOR = 1;
-const int MINOR = 0;
-const int REV = 2;
-const int BUILD = 22;
+const int MINOR = 1;
+const int REV = 0;
+const int BUILD = 24;
 
-static void killAllPlayers ()
+static void killAllPlayers()
 {
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -51,7 +51,7 @@ static void killAllPlayers ()
     bz_deleteIntList(playerList);
 }
 
-static void sendToPlayers (bz_eTeamType team, std::string message)
+static void sendToPlayers(bz_eTeamType team, const std::string &message)
 {
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
@@ -69,65 +69,67 @@ static void sendToPlayers (bz_eTeamType team, std::string message)
     bz_deleteIntList(playerList);
 }
 
-static std::string teamToTeamFlag (bz_eTeamType team)
+enum class AhodGameMode
 {
-    switch (team)
-    {
-        case eBlueTeam:
-            return "B*";
+    Undefined = -1,
+    SingleDeck = 0, // Game mode where all teams need to go a neutral Deck in order to capture; requires an "AHOD" map object
+    MultipleDecks   // Game mode where teams must have the entire team + enemy flag present on their own base to capture; no "AHOD" object allowed
+};
 
-        case eGreenTeam:
-            return "G*";
-
-        case ePurpleTeam:
-            return "P*";
-
-        case eRedTeam:
-            return "R*";
-
-        default:
-            return "";
-    }
-}
-
-class AhodZone : public bz_CustomZoneObject
+class DeckObject : public bz_CustomZoneObject
 {
 public:
-    AhodZone() : bz_CustomZoneObject(),
-        defined(false) {}
+    DeckObject() : bz_CustomZoneObject(),
+        defined(false),
+        team(eNoTeam)
+    {}
 
     bool defined;
+    bz_eTeamType team;
 };
 
 class AllHandsOnDeck : public bz_Plugin, bz_CustomMapObjectHandler
 {
 public:
     virtual const char* Name ();
-    virtual void Init (const char* config);
-    virtual void Event (bz_EventData *eventData);
-    virtual void Cleanup (void);
-    virtual bool MapObject (bz_ApiString object, bz_CustomMapObjectInfo *data);
+    virtual void Init(const char* config);
+    virtual void Event(bz_EventData *eventData);
+    virtual void Cleanup(void);
+    virtual bool MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data);
 
 private:
-    virtual bool isPlayerOnDeck (int playerID);
-    virtual bool enoughHandsOnDeck (bz_eTeamType team);
-    virtual bool doesTeamHaveEnemyFlag (bz_eTeamType team, bz_eTeamType enemy);
+    bool isPlayerOnDeck(int playerID);
+    bool enoughHandsOnDeck(bz_eTeamType team);
+    DeckObject& getTargetDeck(int playerID);
 
-    AhodZone ahodZone;
+    // Plug-in configuration
+    void handleCommandLine(const char* commandLine);
+    void configureGameMode(const std::string &gameModeLiteral);
+    void configureWelcomeMessage(const std::string &filepath);
 
-    bz_eTeamType teamOne, teamTwo;
-
+    // Game status information
     bool enabled;
+    AhodGameMode gameMode;
+
+    // SingleDeck Mode data
+    DeckObject singleDeck;
+
+    // MultipleDecks Mode data
+    std::map<bz_eTeamType, bool> isCarryingEnemyFlag;
+    std::map<bz_eTeamType, DeckObject> teamDecks;
+
+    // Miscellaneous data
+    bz_eTeamType teamOne, teamTwo;
     std::vector<std::string> introMessage;
 };
 
 BZ_PLUGIN(AllHandsOnDeck)
 
-const char* AllHandsOnDeck::Name (void)
+const char* AllHandsOnDeck::Name(void)
 {
     static const char* pluginBuild;
 
-    if (pluginBuild && !pluginBuild[0])
+    if (!pluginBuild)
     {
         pluginBuild = bz_format("%s %d.%d.%d (%d)", PLUGIN_NAME, MAJOR, MINOR, REV, BUILD);
     }
@@ -135,13 +137,13 @@ const char* AllHandsOnDeck::Name (void)
     return pluginBuild;
 }
 
-void AllHandsOnDeck::Init (const char* commandLine)
+void AllHandsOnDeck::Init(const char* commandLine)
 {
     bz_registerCustomMapObject("AHOD", this);
 
     enabled = false;
-    teamOne = eNoTeam;
-    teamTwo = eNoTeam;
+    teamOne = teamTwo = eNoTeam;
+    gameMode = AhodGameMode::Undefined;
 
     for (bz_eTeamType t = eRedTeam; t <= ePurpleTeam; t = (bz_eTeamType) (t + 1))
     {
@@ -152,17 +154,16 @@ void AllHandsOnDeck::Init (const char* commandLine)
         }
     }
 
-    if (commandLine)
-    {
-        introMessage = getFileTextLines(commandLine);
-    }
+    handleCommandLine(commandLine);
 
     Register(bz_eAllowCTFCaptureEvent);
+    Register(bz_eFlagGrabbedEvent);
+    Register(bz_eFlagDroppedEvent);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
     Register(bz_eWorldFinalized);
-    
+
     // Default to 100% of the team
     if (!bz_BZDBItemExists("_ahodPercentage"))
     {
@@ -170,27 +171,66 @@ void AllHandsOnDeck::Init (const char* commandLine)
     }
 }
 
-void AllHandsOnDeck::Cleanup (void)
+void AllHandsOnDeck::Cleanup(void)
 {
     Flush();
 
     bz_removeCustomMapObject("AHOD");
 }
 
-bool AllHandsOnDeck::MapObject (bz_ApiString object, bz_CustomMapObjectInfo *data)
+bool AllHandsOnDeck::MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data)
 {
-    if (object != "AHOD" || !data)
+    if (object != "AHOD" || object != "BASE" || !data)
     {
         return false;
     }
 
-    ahodZone.handleDefaultOptions(data);
-    ahodZone.defined = true;
+    if (object == "AHOD")
+    {
+        singleDeck.handleDefaultOptions(data);
+        singleDeck.defined = true;
+    }
+    else if (object == "BASE")
+    {
+        DeckObject teamDeck;
+        teamDeck.handleDefaultOptions(data);
+        teamDeck.defined = true;
+
+        for (unsigned int i = 0; i < data->data.size(); i++)
+        {
+            std::string line = data->data.get(i);
+
+            bz_APIStringList nubs;
+            nubs.tokenize(line.c_str(), " ", 0, true);
+
+            if (nubs.size() > 0)
+            {
+                std::string key = bz_toupper(nubs.get(0).c_str());
+
+                if (key == "COLOR")
+                {
+                    teamDeck.team = (bz_eTeamType)atoi(nubs.get(1).c_str());
+                }
+            }
+        }
+
+        // Move the Deck up to the top of the box
+        teamDeck.zMax += 5;
+
+        if (teamDecks.count(teamDeck.team) == 0)
+        {
+            teamDecks[teamDeck.team] = teamDeck;
+        }
+        else
+        {
+            bz_debugMessagef(0, "ERROR :: %s :: Multiple bases for %s team detected. Ignoring...", PLUGIN_NAME, bzu_GetTeamName(teamDeck.team));
+        }
+    }
 
     return true;
 }
 
-void AllHandsOnDeck::Event (bz_EventData *eventData)
+void AllHandsOnDeck::Event(bz_EventData *eventData)
 {
     switch (eventData->eventType)
     {
@@ -198,7 +238,43 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
         {
             bz_AllowCTFCaptureEventData_V1* allowCtfData = (bz_AllowCTFCaptureEventData_V1*)eventData;
 
-            allowCtfData->allow = false;
+            switch (gameMode)
+            {
+                case AhodGameMode::SingleDeck:
+                    allowCtfData->allow = false;
+                    break;
+
+                case AhodGameMode::MultipleDecks:
+                    allowCtfData->allow = enoughHandsOnDeck(allowCtfData->teamCapping);
+                    break;
+
+                default:
+                    break;
+            }
+        }
+        break;
+
+        case bz_eFlagGrabbedEvent:
+        {
+            bz_FlagGrabbedEventData_V1 *data = (bz_FlagGrabbedEventData_V1*)eventData;
+            bz_BasePlayerRecord *pr = bz_getPlayerByIndex(data->playerID);
+
+            if (!pr)
+            {
+                return;
+            }
+
+            bz_eTeamType flagOwner = bzu_getTeamFromFlag(data->flagType);
+            isCarryingEnemyFlag[pr->team] = (pr->team != flagOwner);
+            bz_freePlayerRecord(pr);
+        }
+        break;
+
+        case bz_eFlagDroppedEvent:
+        {
+            bz_FlagDroppedEventData_V1 *data = (bz_FlagDroppedEventData_V1*)eventData;
+
+            isCarryingEnemyFlag[bz_getPlayerTeam(data->playerID)] = false;
         }
         break;
 
@@ -207,23 +283,9 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             bz_PlayerJoinPartEventData_V1* joinData = (bz_PlayerJoinPartEventData_V1*)eventData;
             int playerID = joinData->playerID;
 
-            if (introMessage.empty())
+            for (auto line : introMessage)
             {
-                bz_sendTextMessage(playerID, playerID, "********************************************************************");
-                bz_sendTextMessage(playerID, playerID, " ");
-                bz_sendTextMessage(playerID, playerID, "  --- How To Play ---");
-                bz_sendTextMessage(playerID, playerID, "     Take the enemy flag to the neutral base along with your entire");
-                bz_sendTextMessage(playerID, playerID, "     team in order to cap. If any player is missing, you will not be");
-                bz_sendTextMessage(playerID, playerID, "     able to cap. Teamwork matters!");
-                bz_sendTextMessage(playerID, playerID, " ");
-                bz_sendTextMessage(playerID, playerID, "********************************************************************");
-            }
-            else
-            {
-                for (auto line : introMessage)
-                {
-                    bz_sendTextMessage(playerID, playerID, line.c_str());
-                }
+                bz_sendTextMessage(playerID, playerID, line.c_str());
             }
 
             if (!enabled)
@@ -240,7 +302,7 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
             if (isPlayerOnDeck(pauseData->playerID) && pauseData->pause)
             {
                 bz_killPlayer(pauseData->playerID, false);
-                bz_sendTextMessage(BZ_SERVER, pauseData->playerID, "Pausing in the AHOD zone is not permitted.");
+                bz_sendTextMessage(BZ_SERVER, pauseData->playerID, "Pausing on the deck is not permitted.");
             }
         }
         break;
@@ -265,28 +327,31 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
                 enabled = true;
             }
 
-            bool teamOneAhod = enoughHandsOnDeck(teamOne);
-            bool teamTwoAhod = enoughHandsOnDeck(teamTwo);
-
-            if (teamOneAhod || teamTwoAhod)
+            if (gameMode == AhodGameMode::SingleDeck)
             {
-                bool teamOneHasEnemyFlag = doesTeamHaveEnemyFlag(teamOne, teamTwo);
-                bool teamTwoHasEnemyFlag = doesTeamHaveEnemyFlag(teamTwo, teamOne);
+                bool teamOneAhod = enoughHandsOnDeck(teamOne);
+                bool teamTwoAhod = enoughHandsOnDeck(teamTwo);
 
-                if (teamOneHasEnemyFlag || teamTwoHasEnemyFlag)
+                if (teamOneAhod || teamTwoAhod)
                 {
-                    if ((teamOneAhod && teamOneHasEnemyFlag) || (teamTwoAhod && teamTwoHasEnemyFlag))
+                    bool teamOneHasEnemyFlag = isCarryingEnemyFlag[teamOne];
+                    bool teamTwoHasEnemyFlag = isCarryingEnemyFlag[teamTwo];
+
+                    if (teamOneHasEnemyFlag || teamTwoHasEnemyFlag)
                     {
-                        bz_eTeamType victor = (teamOneHasEnemyFlag) ? teamOne : teamTwo;
-                        bz_eTeamType loser  = (teamOneHasEnemyFlag) ? teamTwo : teamOne;
+                        if ((teamOneAhod && teamOneHasEnemyFlag) || (teamTwoAhod && teamTwoHasEnemyFlag))
+                        {
+                            bz_eTeamType victor = (teamOneHasEnemyFlag) ? teamOne : teamTwo;
+                            bz_eTeamType loser  = (teamOneHasEnemyFlag) ? teamTwo : teamOne;
 
-                        killAllPlayers();
-                        bz_incrementTeamWins(victor, 1);
-                        bz_incrementTeamLosses(loser, 1);
-                        bz_resetFlags(false);
+                            killAllPlayers();
+                            bz_incrementTeamWins(victor, 1);
+                            bz_incrementTeamLosses(loser, 1);
+                            bz_resetFlags(false);
 
-                        sendToPlayers(loser, bz_format("Team flag captured by the %s team!", bzu_GetTeamName(victor)));
-                        sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
+                            sendToPlayers(loser, bz_format("Team flag captured by the %s team!", bzu_GetTeamName(victor)));
+                            sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
+                        }
                     }
                 }
             }
@@ -295,43 +360,92 @@ void AllHandsOnDeck::Event (bz_EventData *eventData)
 
         case bz_eWorldFinalized:
         {
-            if (!ahodZone.defined)
+            if (gameMode == AhodGameMode::SingleDeck)
             {
-               bz_debugMessage(0, "DEBUG :: AllHandsOnDeck :: There was no AHOD zone defined for this AHOD style map.");
+                if (!singleDeck.defined)
+                {
+                    bz_debugMessagef(0, "ERROR :: %s :: There was no AHOD zone defined for this AHOD style map.", PLUGIN_NAME);
+                }
+            }
+            else if (gameMode == AhodGameMode::MultipleDecks)
+            {
+                if (singleDeck.defined)
+                {
+                    bz_debugMessagef(0, "ERROR :: %s :: The defined AHOD zone will be ignored in 'MultipleDecks' mode.", PLUGIN_NAME);
+                }
             }
         }
         break;
 
-        default: break;
-    }
-}
-
-bool AllHandsOnDeck::doesTeamHaveEnemyFlag(bz_eTeamType team, bz_eTeamType enemy)
-{
-    bz_APIIntList *playerList = bz_newIntList();
-    bz_getPlayerIndexList(playerList);
-
-    bool doesHaveEnemyFlag = false;
-
-    for (unsigned int i = 0; i < playerList->size(); i++ )
-    {
-        int playerID = playerList->get(i);
-        const char* cFlag = bz_getPlayerFlag(playerID);
-        std::string teamFlag = (cFlag == NULL) ? "" : cFlag;
-
-        if (bz_getPlayerTeam(playerID) == team && teamFlag == teamToTeamFlag(enemy))
-        {
-            doesHaveEnemyFlag = true;
+        default:
             break;
-        }
     }
-
-    bz_deleteIntList(playerList);
-
-    return doesHaveEnemyFlag;
 }
 
-bool AllHandsOnDeck::isPlayerOnDeck (int playerID)
+void AllHandsOnDeck::handleCommandLine(const char* commandLine)
+{
+    if (!commandLine)
+    {
+        return;
+    }
+
+    bz_APIStringList cmdLineOptions;
+    cmdLineOptions.tokenize(commandLine, ",");
+
+    if (cmdLineOptions.size() != 1 || cmdLineOptions.size() != 2)
+    {
+        bz_debugMessagef(0, "ERROR :: %s :: Syntax usage:", PLUGIN_NAME);
+        bz_debugMessagef(0, "ERROR :: %s ::   -loadplugin AllHandsOnDeck,<SingleDeck|MultipleDecks>", PLUGIN_NAME);
+        bz_debugMessagef(0, "ERROR :: %s ::   -loadplugin AllHandsOnDeck,<SingleDeck|MultipleDecks>,<welcome message file path>", PLUGIN_NAME);
+
+        return;
+    }
+
+    configureGameMode(cmdLineOptions[0]);
+
+    if (cmdLineOptions.size() == 2)
+    {
+        configureWelcomeMessage(cmdLineOptions[1]);
+    }
+}
+
+void AllHandsOnDeck::configureGameMode(const std::string &gameModeLiteral)
+{
+    if (gameModeLiteral == "SingleDeck")
+    {
+        gameMode = AhodGameMode::SingleDeck;
+    }
+    else if (gameModeLiteral == "MultipleDecks")
+    {
+        gameMode = AhodGameMode::MultipleDecks;
+    }
+
+    if (gameMode == AhodGameMode::Undefined)
+    {
+        bz_debugMessagef(0, "ERROR :: %s :: Ahod game mode is undefined! This plug-in will not work correctly.", PLUGIN_NAME);
+    }
+}
+
+void AllHandsOnDeck::configureWelcomeMessage(const std::string &filepath)
+{
+    if (filepath.empty())
+    {
+        introMessage.push_back("********************************************************************");
+        introMessage.push_back(" ");
+        introMessage.push_back("  --- How To Play ---");
+        introMessage.push_back("     Take the enemy flag to the neutral base along with your entire");
+        introMessage.push_back("     team in order to cap. If any player is missing, you will not be");
+        introMessage.push_back("     able to cap. Teamwork matters!");
+        introMessage.push_back(" ");
+        introMessage.push_back("********************************************************************");
+
+        return;
+    }
+
+    introMessage = getFileTextLines(filepath);
+}
+
+bool AllHandsOnDeck::isPlayerOnDeck(int playerID)
 {
     bz_BasePlayerRecord *pr = bz_getPlayerByIndex(playerID);
 
@@ -340,18 +454,34 @@ bool AllHandsOnDeck::isPlayerOnDeck (int playerID)
         return false;
     }
 
-    bool playerIsOnDeck = (ahodZone.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
+    DeckObject& targetDeck = getTargetDeck(playerID);
+
+    // The player must match the following criteria
+    //   1. is inside the deck
+    //   2. is alive
+    //   3. is not jumping inside the deck
+    bool playerIsOnDeck = (targetDeck.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
 
     bz_freePlayerRecord(pr);
 
     return playerIsOnDeck;
 }
 
-// Check to see if there are enough players of a specified team in the AHOD zone
-bool AllHandsOnDeck::enoughHandsOnDeck (bz_eTeamType team)
+DeckObject& AllHandsOnDeck::getTargetDeck(int playerID)
+{
+    if (gameMode == AhodGameMode::MultipleDecks)
+    {
+        return teamDecks[bz_getPlayerTeam(playerID)];
+    }
+
+    return singleDeck;
+}
+
+// Check to see if there are enough players of a specified team on a deck
+bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
 {
     int teamCount = 0, teamTotal = bz_getTeamCount(team);
-    
+
     if (teamTotal < 2)
     {
         return false;
