@@ -185,12 +185,12 @@ bool AllHandsOnDeck::MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data
         return false;
     }
 
-    if (object == "AHOD")
+    if (gameMode == AhodGameMode::SingleDeck && object == "AHOD")
     {
         singleDeck.handleDefaultOptions(data);
         singleDeck.defined = true;
     }
-    else if (object == "BASE")
+    else if (gameMode == AhodGameMode::MultipleDecks && object == "BASE")
     {
         DeckObject teamDeck;
         teamDeck.handleDefaultOptions(data);
@@ -369,9 +369,9 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
             }
             else if (gameMode == AhodGameMode::MultipleDecks)
             {
-                if (singleDeck.defined)
+                if (teamDecks.size() < 2)
                 {
-                    bz_debugMessagef(0, "ERROR :: %s :: The defined AHOD zone will be ignored in 'MultipleDecks' mode.", PLUGIN_NAME);
+                    bz_debugMessagef(0, "WARNING :: %s :: There were not enough bases found on this map for a MultipleDecks game mode.", PLUGIN_NAME);
                 }
             }
         }
