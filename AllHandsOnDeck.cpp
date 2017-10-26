@@ -140,6 +140,7 @@ const char* AllHandsOnDeck::Name(void)
 void AllHandsOnDeck::Init(const char* commandLine)
 {
     bz_registerCustomMapObject("AHOD", this);
+    bz_registerCustomMapObject("DECK", this);
 
     enabled = false;
     teamOne = teamTwo = eNoTeam;
@@ -176,21 +177,28 @@ void AllHandsOnDeck::Cleanup(void)
     Flush();
 
     bz_removeCustomMapObject("AHOD");
+    bz_removeCustomMapObject("DECK");
 }
 
 bool AllHandsOnDeck::MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data)
 {
-    if (object != "AHOD" || object != "BASE" || !data)
+    if ((object != "AHOD" && object != "DECK") || !data)
     {
         return false;
     }
 
-    if (gameMode == AhodGameMode::SingleDeck && object == "AHOD")
+    if (object == "AHOD")
+    {
+        bz_debugMessagef(0, "WARNING :: %s :: The 'AHOD' object has been renamed to 'DECK'.", PLUGIN_NAME);
+        bz_debugMessagef(0, "WARNING :: %s :: Future versions of this plug-in will drop support for 'AHOD' objects.", PLUGIN_NAME);
+    }
+
+    if (gameMode == AhodGameMode::SingleDeck)
     {
         singleDeck.handleDefaultOptions(data);
         singleDeck.defined = true;
     }
-    else if (gameMode == AhodGameMode::MultipleDecks && object == "BASE")
+    else if (gameMode == AhodGameMode::MultipleDecks)
     {
         DeckObject teamDeck;
         teamDeck.handleDefaultOptions(data);
@@ -213,9 +221,6 @@ bool AllHandsOnDeck::MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data
                 }
             }
         }
-
-        // Move the Deck up to the top of the box
-        teamDeck.zMax += 5;
 
         if (teamDecks.count(teamDeck.team) == 0)
         {
