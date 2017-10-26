@@ -206,6 +206,12 @@ bool AllHandsOnDeck::MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data
 
     if (gameMode == AhodGameMode::SingleDeck)
     {
+        if (singleDeck.defined)
+        {
+            bz_debugMessagef(0, "WARNING :: %s :: A single deck has already been defined, ignoring any other decks...", PLUGIN_NAME);
+            return true;
+        }
+
         singleDeck.handleDefaultOptions(data);
         singleDeck.defined = true;
     }
