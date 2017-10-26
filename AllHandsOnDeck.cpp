@@ -24,6 +24,9 @@ All Hands On Deck
 #include "plugin_files.h"
 #include "plugin_utils.h"
 
+// Level used for debug messages
+const int DEBUG_VERBOSITY = 4;
+
 // Define plugin name
 const char* PLUGIN_NAME = "All Hands On Deck!";
 
@@ -103,6 +106,8 @@ private:
     bool isPlayerOnDeck(int playerID);
     bool enoughHandsOnDeck(bz_eTeamType team);
     DeckObject& getTargetDeck(int playerID);
+    double getAhodPercentage();
+    void sendWelcomeMessage(int playerID);
 
     // Plug-in configuration
     void handleCommandLine(const char* commandLine);
@@ -121,6 +126,7 @@ private:
     std::map<bz_eTeamType, DeckObject> teamDecks;
 
     // Miscellaneous data
+    bool introDisabled;
     bz_eTeamType teamOne, teamTwo;
     std::vector<std::string> introMessage;
 };
@@ -145,6 +151,7 @@ void AllHandsOnDeck::Init(const char* commandLine)
     bz_registerCustomMapObject("DECK", this);
 
     enabled = false;
+    introDisabled = false;
     teamOne = teamTwo = eNoTeam;
     gameMode = AhodGameMode::Undefined;
 
@@ -229,6 +236,7 @@ bool AllHandsOnDeck::MapObject(bz_ApiString object, bz_CustomMapObjectInfo *data
         if (teamDecks.count(teamDeck.team) == 0)
         {
             teamDecks[teamDeck.team] = teamDeck;
+            bz_debugMessagef(DEBUG_VERBOSITY, "DEBUG :: %s :: Registered deck for %s team", PLUGIN_NAME, bzu_GetTeamName(teamDeck.team));
         }
         else
         {
@@ -292,10 +300,7 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
             bz_PlayerJoinPartEventData_V1* joinData = (bz_PlayerJoinPartEventData_V1*)eventData;
             int playerID = joinData->playerID;
 
-            for (auto line : introMessage)
-            {
-                bz_sendTextMessage(playerID, playerID, line.c_str());
-            }
+            sendWelcomeMessage(playerID);
 
             if (!enabled)
             {
@@ -405,7 +410,7 @@ void AllHandsOnDeck::handleCommandLine(const char* commandLine)
     {
         bz_debugMessagef(0, "ERROR :: %s :: Syntax usage:", PLUGIN_NAME);
         bz_debugMessagef(0, "ERROR :: %s ::   -loadplugin AllHandsOnDeck,<SingleDeck|MultipleDecks>", PLUGIN_NAME);
-        bz_debugMessagef(0, "ERROR :: %s ::   -loadplugin AllHandsOnDeck,<SingleDeck|MultipleDecks>,<welcome message file path>", PLUGIN_NAME);
+        bz_debugMessagef(0, "ERROR :: %s ::   -loadplugin AllHandsOnDeck,<SingleDeck|MultipleDecks>,<default|disabled|filepath>", PLUGIN_NAME);
 
         return;
     }
@@ -423,10 +428,14 @@ void AllHandsOnDeck::configureGameMode(const std::string &gameModeLiteral)
     if (gameModeLiteral == "SingleDeck")
     {
         gameMode = AhodGameMode::SingleDeck;
+
+        bz_debugMessagef(DEBUG_VERBOSITY, "DEBUG :: %s :: Game mode set to 'SingleDeck'", PLUGIN_NAME);
     }
     else if (gameModeLiteral == "MultipleDecks")
     {
         gameMode = AhodGameMode::MultipleDecks;
+
+        bz_debugMessagef(DEBUG_VERBOSITY, "DEBUG :: %s :: Game mode set to 'MultipleDecks'", PLUGIN_NAME);
     }
 
     if (gameMode == AhodGameMode::Undefined)
@@ -437,21 +446,60 @@ void AllHandsOnDeck::configureGameMode(const std::string &gameModeLiteral)
 
 void AllHandsOnDeck::configureWelcomeMessage(const std::string &filepath)
 {
-    if (filepath.empty())
+    if (filepath == "disabled")
     {
-        introMessage.push_back("********************************************************************");
-        introMessage.push_back(" ");
-        introMessage.push_back("  --- How To Play ---");
-        introMessage.push_back("     Take the enemy flag to the neutral base along with your entire");
-        introMessage.push_back("     team in order to cap. If any player is missing, you will not be");
-        introMessage.push_back("     able to cap. Teamwork matters!");
-        introMessage.push_back(" ");
-        introMessage.push_back("********************************************************************");
+        introDisabled = true;
+
+        bz_debugMessagef(DEBUG_VERBOSITY, "DEBUG :: %s :: Welcome message has been disabled.", PLUGIN_NAME);
+
+        return;
+    }
+    else if (!filepath.empty())
+    {
+        introMessage = getFileTextLines(filepath);
+    }
+}
+
+void AllHandsOnDeck::sendWelcomeMessage(int playerID)
+{
+    if (introDisabled)
+    {
+        return;
+    }
+
+    if (!introMessage.empty())
+    {
+        for (auto line : introMessage)
+        {
+            bz_sendTextMessage(playerID, playerID, line.c_str());
+        }
 
         return;
     }
 
-    introMessage = getFileTextLines(filepath);
+    std::string location;
+
+    if (gameMode == AhodGameMode::SingleDeck)
+    {
+        location = "the neutral base";
+    }
+    else if (gameMode == AhodGameMode::MultipleDecks)
+    {
+        location = "your own base";
+    }
+
+    bz_sendTextMessagef(playerID, playerID, "********************************************************************");
+    bz_sendTextMessagef(playerID, playerID, " ");
+    bz_sendTextMessagef(playerID, playerID, "  --- How To Play ---");
+    bz_sendTextMessagef(playerID, playerID, "     Take the enemy flag to %s along with %.0lf%% of your", location.c_str(), (getAhodPercentage() * 100));
+    bz_sendTextMessagef(playerID, playerID, "     team in order to cap. Teamwork matters!");
+    bz_sendTextMessagef(playerID, playerID, " ");
+    bz_sendTextMessagef(playerID, playerID, "********************************************************************");
+}
+
+double AllHandsOnDeck::getAhodPercentage()
+{
+    return std::min(std::abs(bz_getBZDBDouble("_ahodPercentage")), 1.0);
 }
 
 bool AllHandsOnDeck::isPlayerOnDeck(int playerID)
@@ -511,5 +559,5 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
 
     bz_deleteIntList(playerList);
 
-    return ((teamCount / (double)teamTotal) >= std::min(std::abs(bz_getBZDBDouble("_ahodPercentage")), 1.0));
+    return ((teamCount / (double)teamTotal) >= getAhodPercentage());
 }
