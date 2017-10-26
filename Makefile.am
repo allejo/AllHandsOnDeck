@@ -10,10 +10,13 @@ AM_CFLAGS = $(CONF_CFLAGS)
 AM_CXXFLAGS = $(CONF_CXXFLAGS)
 
 EXTRA_DIST = \
-	README.txt \
+	LICENSE.md \
+	README.md \
+	welcome.txt \
 	AllHandsOnDeck.def \
 	AllHandsOnDeck.sln \
-	AllHandsOnDeck.vcxproj
+	AllHandsOnDeck.vcxproj \
+	AllHandsOnDeck.vcxproj.filters
 
 MAINTAINERCLEANFILES =	\
 	Makefile.in

@@ -8,5 +8,12 @@ charset = utf-8
 trim_trailing_whitespace = true
 insert_final_newline = false
 
-[*.md]
+[*.{md,markdown}]
 trim_trailing_whitespace = false
+
+[*.am]
+indent_style = tab
+
+# Windows files
+[*.{def,sln,vcxproj,filters}]
+end_of_line = crlf
