@@ -16,6 +16,8 @@ All Hands On Deck
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 
 #include "bzfsAPI.h"
@@ -170,6 +172,8 @@ void AllHandsOnDeck::Init(const char* commandLine)
     {
         bz_setBZDBDouble("_ahodPercentage", 1);
     }
+
+    bz_setDefaultBZDBDouble("_ahodPercentage", 1);
 }
 
 void AllHandsOnDeck::Cleanup(void)
@@ -397,7 +401,7 @@ void AllHandsOnDeck::handleCommandLine(const char* commandLine)
     bz_APIStringList cmdLineOptions;
     cmdLineOptions.tokenize(commandLine, ",");
 
-    if (cmdLineOptions.size() != 1 || cmdLineOptions.size() != 2)
+    if (cmdLineOptions.size() != 1 && cmdLineOptions.size() != 2)
     {
         bz_debugMessagef(0, "ERROR :: %s :: Syntax usage:", PLUGIN_NAME);
         bz_debugMessagef(0, "ERROR :: %s ::   -loadplugin AllHandsOnDeck,<SingleDeck|MultipleDecks>", PLUGIN_NAME);
@@ -507,5 +511,5 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
 
     bz_deleteIntList(playerList);
 
-    return ((teamCount / (double)teamTotal) >= bz_getBZDBDouble("_ahodPercentage"));
+    return ((teamCount / (double)teamTotal) >= std::min(std::abs(bz_getBZDBDouble("_ahodPercentage")), 1.0));
 }
