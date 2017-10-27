@@ -365,8 +365,8 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
                     {
                         if ((teamOneAhod && teamOneHasEnemyFlag) || (teamTwoAhod && teamTwoHasEnemyFlag))
                         {
-                            bz_eTeamType victor = (teamOneHasEnemyFlag) ? teamOne : teamTwo;
-                            bz_eTeamType loser  = (teamOneHasEnemyFlag) ? teamTwo : teamOne;
+                            bz_eTeamType victor = (teamOneAhod && teamOneHasEnemyFlag) ? teamOne : teamTwo;
+                            bz_eTeamType loser  = (teamOneAhod && teamOneHasEnemyFlag) ? teamTwo : teamOne;
 
                             killAllPlayers();
                             bz_incrementTeamWins(victor, 1);
