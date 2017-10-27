@@ -22,7 +22,7 @@ THE SOFTWARE.
 
 #include <algorithm>
 #include <cmath>
-#include <memory>
+#include <map>
 
 #include "bzfsAPI.h"
 #include "plugin_files.h"
@@ -126,12 +126,13 @@ private:
     DeckObject singleDeck;
 
     // MultipleDecks Mode data
-    std::map<bz_eTeamType, bool> isCarryingEnemyFlag;
+    std::map<bz_eTeamType, int> teamFlagCarrier;
+    std::map<bz_eTeamType, bz_eTeamType> carryingEnemyFlag;
     std::map<bz_eTeamType, DeckObject> teamDecks;
 
     // Miscellaneous data
     bool introDisabled;
-    bz_eTeamType teamOne, teamTwo;
+    std::vector<bz_eTeamType> availableTeams;
     std::vector<std::string> introMessage;
 };
 
@@ -156,15 +157,13 @@ void AllHandsOnDeck::Init(const char* commandLine)
 
     enabled = false;
     introDisabled = false;
-    teamOne = teamTwo = eNoTeam;
     gameMode = AhodGameMode::Undefined;
 
     for (bz_eTeamType t = eRedTeam; t <= ePurpleTeam; t = (bz_eTeamType) (t + 1))
     {
         if (bz_getTeamPlayerLimit(t) > 0)
         {
-            if      (teamOne == eNoTeam) teamOne = t;
-            else if (teamTwo == eNoTeam) teamTwo = t;
+            availableTeams.push_back(t);
         }
     }
 
@@ -284,24 +283,20 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         case bz_eFlagGrabbedEvent:
         {
             bz_FlagGrabbedEventData_V1 *data = (bz_FlagGrabbedEventData_V1*)eventData;
-            bz_BasePlayerRecord *pr = bz_getPlayerByIndex(data->playerID);
+            bz_eTeamType team = bz_getPlayerTeam(data->playerID);
 
-            if (!pr)
-            {
-                return;
-            }
-
-            bz_eTeamType flagOwner = bzu_getTeamFromFlag(data->flagType);
-            isCarryingEnemyFlag[pr->team] = (pr->team != flagOwner);
-            bz_freePlayerRecord(pr);
+            teamFlagCarrier[team] = data->playerID;
+            carryingEnemyFlag[team] = bzu_getTeamFromFlag(data->flagType);
         }
         break;
 
         case bz_eFlagDroppedEvent:
         {
             bz_FlagDroppedEventData_V1 *data = (bz_FlagDroppedEventData_V1*)eventData;
+            bz_eTeamType team = bz_getPlayerTeam(data->playerID);
 
-            isCarryingEnemyFlag[bz_getPlayerTeam(data->playerID)] = false;
+            teamFlagCarrier[team] = -1;
+            carryingEnemyFlag[team] = eNoTeam;
         }
         break;
 
@@ -334,15 +329,18 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         case bz_eTickEvent: // This event is called once for each BZFS main loop
         {
             // AHOD is only enabled if there are at least 2 players per team
-            if (bz_getTeamCount(teamOne) < 2 || bz_getTeamCount(teamTwo) < 2)
+            for (auto team : availableTeams)
             {
-                if (enabled)
+                if (bz_getTeamCount(team) < 2)
                 {
-                    bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "All Hands on Deck! has been disabled. Minimum of 2v2 is required.");
-                    enabled = false;
-                }
+                    if (enabled)
+                    {
+                        bz_sendTextMessage(BZ_SERVER, BZ_ALLUSERS, "All Hands on Deck! has been disabled. Minimum of 2 players per team is required.");
+                        enabled = false;
+                    }
 
-                return;
+                    return;
+                }
             }
 
             if (!enabled)
@@ -353,30 +351,24 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
 
             if (gameMode == AhodGameMode::SingleDeck)
             {
-                bool teamOneAhod = enoughHandsOnDeck(teamOne);
-                bool teamTwoAhod = enoughHandsOnDeck(teamTwo);
-
-                if (teamOneAhod || teamTwoAhod)
+                for (auto team : availableTeams)
                 {
-                    bool teamOneHasEnemyFlag = isCarryingEnemyFlag[teamOne];
-                    bool teamTwoHasEnemyFlag = isCarryingEnemyFlag[teamTwo];
-
-                    if (teamOneHasEnemyFlag || teamTwoHasEnemyFlag)
+                    if (!enoughHandsOnDeck(team) || carryingEnemyFlag[team] == eNoTeam)
                     {
-                        if ((teamOneAhod && teamOneHasEnemyFlag) || (teamTwoAhod && teamTwoHasEnemyFlag))
-                        {
-                            bz_eTeamType victor = (teamOneAhod && teamOneHasEnemyFlag) ? teamOne : teamTwo;
-                            bz_eTeamType loser  = (teamOneAhod && teamOneHasEnemyFlag) ? teamTwo : teamOne;
-
-                            killAllPlayers();
-                            bz_incrementTeamWins(victor, 1);
-                            bz_incrementTeamLosses(loser, 1);
-                            bz_resetFlags(false);
-
-                            sendToPlayers(loser, bz_format("Team flag captured by the %s team!", bzu_GetTeamName(victor)));
-                            sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
-                        }
+                        continue;
                     }
+
+                    bz_eTeamType victor = team;
+                    bz_eTeamType loser  = carryingEnemyFlag[team];
+
+                    bz_resetFlag(bz_getPlayerFlagID(teamFlagCarrier[team]));
+
+                    killAllPlayers();
+                    bz_incrementTeamWins(victor, 1);
+                    bz_incrementTeamLosses(loser, 1);
+
+                    sendToPlayers(loser, bz_format("Team flag captured by the %s team!", bzu_GetTeamName(victor)));
+                    sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
                 }
             }
         }
