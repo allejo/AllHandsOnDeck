@@ -43,8 +43,8 @@ const int BUILD = 24;
 enum class AhodGameMode
 {
     Undefined = -1,
-    SingleDeck = 0, // Game mode where all teams need to go a neutral Deck in order to capture; requires an "AHOD" map object
-    MultipleDecks   // Game mode where teams must have the entire team + enemy flag present on their own base to capture; no "AHOD" object allowed
+    SingleDeck = 0, // Game mode where all teams need to go a neutral Deck in order to capture; requires a single "DECK" map object
+    MultipleDecks   // Game mode where teams must have the entire team + enemy flag present on their respective Deck to capture; requires multiple "DECK" map objects
 };
 
 class DeckObject : public bz_CustomZoneObject
