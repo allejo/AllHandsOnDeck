@@ -40,44 +40,6 @@ const int MINOR = 1;
 const int REV = 0;
 const int BUILD = 24;
 
-static void killAllPlayers()
-{
-    bz_APIIntList *playerList = bz_newIntList();
-    bz_getPlayerIndexList(playerList);
-
-    for (unsigned int i = 0; i < playerList->size(); i++)
-    {
-        int playerID = playerList->get(i);
-
-        if (bz_getPlayerByIndex(playerID)->spawned && bz_killPlayer(playerID, false))
-        {
-            bz_incrementPlayerLosses(playerID, -1);
-        }
-
-        bz_setPlayerSpawnAtBase(playerID, true);
-    }
-
-    bz_deleteIntList(playerList);
-}
-
-static void sendToPlayers(bz_eTeamType team, const std::string &message)
-{
-    bz_APIIntList *playerList = bz_newIntList();
-    bz_getPlayerIndexList(playerList);
-
-    for (unsigned int i = 0; i < playerList->size(); i++)
-    {
-        int playerID = playerList->get(i);
-
-        if (bz_getPlayerByIndex(playerID)->team == team)
-        {
-            bz_sendTextMessagef(playerID, playerID, message.c_str());
-        }
-    }
-
-    bz_deleteIntList(playerList);
-}
-
 enum class AhodGameMode
 {
     Undefined = -1,
@@ -264,19 +226,7 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         {
             bz_AllowCTFCaptureEventData_V1* allowCtfData = (bz_AllowCTFCaptureEventData_V1*)eventData;
 
-            switch (gameMode)
-            {
-                case AhodGameMode::SingleDeck:
-                    allowCtfData->allow = false;
-                    break;
-
-                case AhodGameMode::MultipleDecks:
-                    allowCtfData->allow = enoughHandsOnDeck(allowCtfData->teamCapping);
-                    break;
-
-                default:
-                    break;
-            }
+            allowCtfData->allow = enoughHandsOnDeck(allowCtfData->teamCapping);
         }
         break;
 
@@ -353,22 +303,12 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
             {
                 for (auto team : availableTeams)
                 {
-                    if (!enoughHandsOnDeck(team) || carryingEnemyFlag[team] == eNoTeam)
+                    if (carryingEnemyFlag[team] == eNoTeam)
                     {
                         continue;
                     }
 
-                    bz_eTeamType victor = team;
-                    bz_eTeamType loser  = carryingEnemyFlag[team];
-
-                    bz_resetFlag(bz_getPlayerFlagID(teamFlagCarrier[team]));
-
-                    killAllPlayers();
-                    bz_incrementTeamWins(victor, 1);
-                    bz_incrementTeamLosses(loser, 1);
-
-                    sendToPlayers(loser, bz_format("Team flag captured by the %s team!", bzu_GetTeamName(victor)));
-                    sendToPlayers(victor, std::string("Great teamwork! Don't let them capture your flag!"));
+                    bz_triggerFlagCapture(teamFlagCarrier[team], team, carryingEnemyFlag[team]);
                 }
             }
         }
