@@ -300,17 +300,14 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
                 enabled = true;
             }
 
-            if (gameMode == AhodGameMode::SingleDeck)
+            for (auto team : availableTeams)
             {
-                for (auto team : availableTeams)
+                if (carryingEnemyFlag[team] == eNoTeam)
                 {
-                    if (carryingEnemyFlag[team] == eNoTeam)
-                    {
-                        continue;
-                    }
-
-                    bz_triggerFlagCapture(teamFlagCarrier[team], team, carryingEnemyFlag[team]);
+                    continue;
                 }
+
+                bz_triggerFlagCapture(teamFlagCarrier[team], team, carryingEnemyFlag[team]);
             }
         }
         break;
