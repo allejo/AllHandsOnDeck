@@ -1,6 +1,6 @@
 # All Hands On Deck! (AHOD)
 
-[![GitHub release](https://img.shields.io/github/release/allejo/AllHandsOnDeck.svg?maxAge=2592000)](https://github.com/allejo/AllHandsOnDeck/releases/latest)
+[![GitHub release](https://img.shields.io/github/release/allejo/AllHandsOnDeck.svg)](https://github.com/allejo/AllHandsOnDeck/releases/latest)
 ![Minimum BZFlag Version](https://img.shields.io/badge/BZFlag-v2.4.12+-blue.svg)
 [![License](https://img.shields.io/github/license/allejo/AllHandsOnDeck.svg)](https://github.com/allejo/AllHandsOnDeck/blob/master/LICENSE.md)
 
