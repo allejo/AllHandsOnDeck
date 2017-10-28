@@ -234,9 +234,10 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         {
             bz_FlagGrabbedEventData_V1 *data = (bz_FlagGrabbedEventData_V1*)eventData;
             bz_eTeamType team = bz_getPlayerTeam(data->playerID);
+            bz_eTeamType enemy = bzu_getTeamFromFlag(data->flagType);
 
             teamFlagCarrier[team] = data->playerID;
-            carryingEnemyFlag[team] = bzu_getTeamFromFlag(data->flagType);
+            carryingEnemyFlag[team] = (enemy != team) ? enemy : eNoTeam;
         }
         break;
 
