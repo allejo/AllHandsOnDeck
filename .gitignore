@@ -27,3 +27,20 @@ Thumbs.db
 .libs
 Makefile
 Makefile.in
+
+# Visual Studio
+.vs/
+
+# User-specific stuff
+*.suo
+*.user
+
+*.lib
+*.pdb
+*.obj
+*.log
+*.tlog
+
+# Visual C++ cache files
+*.VC.db
+*.VC.VC.opendb
