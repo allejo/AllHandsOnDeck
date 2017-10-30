@@ -37,8 +37,8 @@ const char* PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 1;
-const int REV = 0;
-const int BUILD = 39;
+const int REV = 1;
+const int BUILD = 41;
 
 enum class AhodGameMode
 {
@@ -233,21 +233,28 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         case bz_eFlagGrabbedEvent:
         {
             bz_FlagGrabbedEventData_V1 *data = (bz_FlagGrabbedEventData_V1*)eventData;
-            bz_eTeamType team = bz_getPlayerTeam(data->playerID);
-            bz_eTeamType enemy = bzu_getTeamFromFlag(data->flagType);
+            bz_eTeamType playerTeam = bz_getPlayerTeam(data->playerID);
+            bz_eTeamType flagGrabbedTeam = bzu_getTeamFromFlag(data->flagType);
 
-            teamFlagCarrier[team] = data->playerID;
-            carryingEnemyFlag[team] = (enemy != team) ? enemy : eNoTeam;
+            if (flagGrabbedTeam != playerTeam)
+            {
+                teamFlagCarrier[playerTeam] = data->playerID;
+                carryingEnemyFlag[playerTeam] = flagGrabbedTeam;
+            }
         }
         break;
 
         case bz_eFlagDroppedEvent:
         {
             bz_FlagDroppedEventData_V1 *data = (bz_FlagDroppedEventData_V1*)eventData;
-            bz_eTeamType team = bz_getPlayerTeam(data->playerID);
+            bz_eTeamType playerTeam = bz_getPlayerTeam(data->playerID);
+            bz_eTeamType flagDroppedTeam = bzu_getTeamFromFlag(data->flagType);
 
-            teamFlagCarrier[team] = -1;
-            carryingEnemyFlag[team] = eNoTeam;
+            if (flagDroppedTeam != playerTeam)
+            {
+                teamFlagCarrier[playerTeam] = -1;
+                carryingEnemyFlag[playerTeam] = eNoTeam;
+            }
         }
         break;
 
