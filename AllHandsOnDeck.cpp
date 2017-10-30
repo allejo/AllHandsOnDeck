@@ -70,7 +70,7 @@ public:
 
 private:
     bool isPlayerOnDeck(int playerID);
-    bool enoughHandsOnDeck(bz_eTeamType team);
+    bool enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_eTeamType *teamCapping);
     DeckObject& getTargetDeck(int playerID);
     double getAhodPercentage();
     void sendWelcomeMessage(int playerID);
@@ -88,8 +88,7 @@ private:
     DeckObject singleDeck;
 
     // MultipleDecks Mode data
-    std::map<bz_eTeamType, int> teamFlagCarrier;
-    std::map<bz_eTeamType, bz_eTeamType> carryingEnemyFlag;
+    std::map<bz_eTeamType, bool> teamHasCapped;
     std::map<bz_eTeamType, DeckObject> teamDecks;
 
     // Miscellaneous data
@@ -125,6 +124,7 @@ void AllHandsOnDeck::Init(const char* commandLine)
     {
         if (bz_getTeamPlayerLimit(t) > 0)
         {
+            teamHasCapped[t] = false;
             availableTeams.push_back(t);
         }
     }
@@ -132,8 +132,6 @@ void AllHandsOnDeck::Init(const char* commandLine)
     handleCommandLine(commandLine);
 
     Register(bz_eAllowCTFCaptureEvent);
-    Register(bz_eFlagGrabbedEvent);
-    Register(bz_eFlagDroppedEvent);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
@@ -225,36 +223,11 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         case bz_eAllowCTFCaptureEvent: // This event is called each time a flag is about to be captured
         {
             bz_AllowCTFCaptureEventData_V1* allowCtfData = (bz_AllowCTFCaptureEventData_V1*)eventData;
+            bz_eTeamType teamCapping = allowCtfData->teamCapping;
 
-            allowCtfData->allow = enoughHandsOnDeck(allowCtfData->teamCapping);
-        }
-        break;
+            allowCtfData->allow = teamHasCapped[teamCapping];
 
-        case bz_eFlagGrabbedEvent:
-        {
-            bz_FlagGrabbedEventData_V1 *data = (bz_FlagGrabbedEventData_V1*)eventData;
-            bz_eTeamType playerTeam = bz_getPlayerTeam(data->playerID);
-            bz_eTeamType flagGrabbedTeam = bzu_getTeamFromFlag(data->flagType);
-
-            if (flagGrabbedTeam != playerTeam)
-            {
-                teamFlagCarrier[playerTeam] = data->playerID;
-                carryingEnemyFlag[playerTeam] = flagGrabbedTeam;
-            }
-        }
-        break;
-
-        case bz_eFlagDroppedEvent:
-        {
-            bz_FlagDroppedEventData_V1 *data = (bz_FlagDroppedEventData_V1*)eventData;
-            bz_eTeamType playerTeam = bz_getPlayerTeam(data->playerID);
-            bz_eTeamType flagDroppedTeam = bzu_getTeamFromFlag(data->flagType);
-
-            if (flagDroppedTeam != playerTeam)
-            {
-                teamFlagCarrier[playerTeam] = -1;
-                carryingEnemyFlag[playerTeam] = eNoTeam;
-            }
+            teamHasCapped[teamCapping] = false;
         }
         break;
 
@@ -309,12 +282,14 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
 
             for (auto team : availableTeams)
             {
-                if (carryingEnemyFlag[team] == eNoTeam)
-                {
-                    continue;
-                }
+                int flagCarrier;
+                bz_eTeamType teamBeingCapped;
 
-                bz_triggerFlagCapture(teamFlagCarrier[team], team, carryingEnemyFlag[team]);
+                if (enoughHandsOnDeck(team, &flagCarrier, &teamBeingCapped))
+                {
+                    teamHasCapped[team] = true;
+                    bz_triggerFlagCapture(flagCarrier, team, teamBeingCapped);
+                }
             }
         }
         break;
@@ -482,7 +457,7 @@ DeckObject& AllHandsOnDeck::getTargetDeck(int playerID)
 }
 
 // Check to see if there are enough players of a specified team on a deck
-bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
+bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_eTeamType *teamCapping)
 {
     int teamCount = 0, teamTotal = bz_getTeamCount(team);
 
@@ -491,6 +466,9 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
         return false;
     }
 
+    *flagCarrier = -1;
+    *teamCapping = eNoTeam;
+
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
 
@@ -498,13 +476,32 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
     {
         int playerID = playerList->get(i);
 
-        if (bz_getPlayerTeam(playerID) == team && isPlayerOnDeck(playerID))
+        // Ignore them if they don't belong to the team we're checking
+        if (bz_getPlayerTeam(playerID) != team)
+        {
+            continue;
+        }
+
+        if (isPlayerOnDeck(playerID))
         {
             teamCount++;
+        }
+
+        // Don't override the current flag carrier if the team has multiple enemy flags
+        if (*flagCarrier == -1)
+        {
+            bz_eTeamType flag = bzu_getTeamFromFlag(bz_getPlayerFlag(playerID));
+
+            // They're holding a team flag and it's not their own team flag
+            if (flag != eNoTeam && flag != team)
+            {
+                *flagCarrier = playerID;
+                *teamCapping = flag;
+            }
         }
     }
 
     bz_deleteIntList(playerList);
 
-    return ((teamCount / (double)teamTotal) >= getAhodPercentage());
+    return ((teamCount / (double)teamTotal) >= getAhodPercentage()) && (*flagCarrier != -1);
 }
