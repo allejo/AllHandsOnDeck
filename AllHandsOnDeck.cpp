@@ -482,10 +482,12 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
             continue;
         }
 
-        if (isPlayerOnDeck(playerID))
+        if (!isPlayerOnDeck(playerID))
         {
-            teamCount++;
+            return false;
         }
+
+        teamCount++;
 
         // Don't override the current flag carrier if the team has multiple enemy flags
         if (*flagCarrier == -1)
