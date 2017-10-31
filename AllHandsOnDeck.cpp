@@ -484,6 +484,7 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
 
         if (!isPlayerOnDeck(playerID))
         {
+            bz_deleteIntList(playerList);
             return false;
         }
 
