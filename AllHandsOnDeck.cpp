@@ -434,16 +434,38 @@ bool AllHandsOnDeck::isPlayerOnDeck(int playerID)
     }
 
     DeckObject& targetDeck = getTargetDeck(playerID);
+    
+    bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: Checking player %s inside deck...", PLUGIN_NAME, pr->callsign.c_str());
 
-    // The player must match the following criteria
-    //   1. is inside the deck
-    //   2. is alive
-    //   3. is not jumping inside the deck
-    bool playerIsOnDeck = (targetDeck.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
+    if (!pr->spawned)
+    {
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is dead", PLUGIN_NAME, pr->callsign.c_str());
+        return false;
+    }
 
+    if (DEBUG_VERBOSITY <= bz_getDebugLevel())
+    {
+        float playerPos[3] = { pr->lastKnownState.pos[0], pr->lastKnownState.pos[1], pr->lastKnownState.pos[2] };
+
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is at location %.2f, %.2f, %.2f", PLUGIN_NAME, pr->callsign.c_str(), playerPos[0], playerPos[1], playerPos[2]);
+    }
+
+    bool playerInsideDeckZone = (targetDeck.pointInZone(pr->lastKnownState.pos));
+    bool playerIsNotJumping = !pr->lastKnownState.falling;
+    
+    if (!playerInsideDeckZone)
+    {
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is not inside deck zone", PLUGIN_NAME, pr->callsign.c_str());
+    }
+    
+    if (!playerIsNotJumping)
+    {
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is jumping inside the deck", PLUGIN_NAME, pr->callsign.c_str());
+    }
+    
     bz_freePlayerRecord(pr);
-
-    return playerIsOnDeck;
+    
+    return (playerInsideDeckZone && playerIsNotJumping);
 }
 
 DeckObject& AllHandsOnDeck::getTargetDeck(int playerID)
@@ -484,6 +506,7 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
 
         if (!isPlayerOnDeck(playerID))
         {
+            bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s [%s] not located on deck", PLUGIN_NAME, bz_getPlayerCallsign(playerID), bzu_GetTeamName(team));
             bz_deleteIntList(playerList);
             return false;
         }
@@ -498,6 +521,8 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
             // They're holding a team flag and it's not their own team flag
             if (flag != eNoTeam && flag != team)
             {
+                bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s recorded with %s team flag", PLUGIN_NAME, bz_getPlayerCallsign(playerID), bzu_GetTeamName(flag));
+
                 *flagCarrier = playerID;
                 *teamCapping = flag;
             }
@@ -505,6 +530,9 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
     }
 
     bz_deleteIntList(playerList);
+    
+    double currentPercentage = (teamCount / (double)teamTotal);
+    double requiredPercentage = getAhodPercentage();
 
-    return ((teamCount / (double)teamTotal) >= getAhodPercentage()) && (*flagCarrier != -1);
+    return (currentPercentage >= requiredPercentage) && (*flagCarrier != -1);
 }
