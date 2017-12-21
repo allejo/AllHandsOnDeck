@@ -38,7 +38,7 @@ const char* PLUGIN_NAME = "All Hands On Deck!";
 const int MAJOR = 1;
 const int MINOR = 1;
 const int REV = 1;
-const int BUILD = 41;
+const int BUILD = 49;
 
 enum class AhodGameMode
 {
