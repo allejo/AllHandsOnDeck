@@ -38,7 +38,7 @@ const char* PLUGIN_NAME = "All Hands On Deck!";
 const int MAJOR = 1;
 const int MINOR = 1;
 const int REV = 1;
-const int BUILD = 41;
+const int BUILD = 49;
 
 enum class AhodGameMode
 {
@@ -70,7 +70,7 @@ public:
 
 private:
     bool isPlayerOnDeck(int playerID);
-    bool enoughHandsOnDeck(bz_eTeamType team);
+    bool enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_eTeamType *teamCapping);
     DeckObject& getTargetDeck(int playerID);
     double getAhodPercentage();
     void sendWelcomeMessage(int playerID);
@@ -88,8 +88,7 @@ private:
     DeckObject singleDeck;
 
     // MultipleDecks Mode data
-    std::map<bz_eTeamType, int> teamFlagCarrier;
-    std::map<bz_eTeamType, bz_eTeamType> carryingEnemyFlag;
+    std::map<bz_eTeamType, bool> teamHasCapped;
     std::map<bz_eTeamType, DeckObject> teamDecks;
 
     // Miscellaneous data
@@ -125,6 +124,7 @@ void AllHandsOnDeck::Init(const char* commandLine)
     {
         if (bz_getTeamPlayerLimit(t) > 0)
         {
+            teamHasCapped[t] = false;
             availableTeams.push_back(t);
         }
     }
@@ -132,8 +132,6 @@ void AllHandsOnDeck::Init(const char* commandLine)
     handleCommandLine(commandLine);
 
     Register(bz_eAllowCTFCaptureEvent);
-    Register(bz_eFlagGrabbedEvent);
-    Register(bz_eFlagDroppedEvent);
     Register(bz_ePlayerJoinEvent);
     Register(bz_ePlayerPausedEvent);
     Register(bz_eTickEvent);
@@ -225,36 +223,11 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
         case bz_eAllowCTFCaptureEvent: // This event is called each time a flag is about to be captured
         {
             bz_AllowCTFCaptureEventData_V1* allowCtfData = (bz_AllowCTFCaptureEventData_V1*)eventData;
+            bz_eTeamType teamCapping = allowCtfData->teamCapping;
 
-            allowCtfData->allow = enoughHandsOnDeck(allowCtfData->teamCapping);
-        }
-        break;
+            allowCtfData->allow = teamHasCapped[teamCapping];
 
-        case bz_eFlagGrabbedEvent:
-        {
-            bz_FlagGrabbedEventData_V1 *data = (bz_FlagGrabbedEventData_V1*)eventData;
-            bz_eTeamType playerTeam = bz_getPlayerTeam(data->playerID);
-            bz_eTeamType flagGrabbedTeam = bzu_getTeamFromFlag(data->flagType);
-
-            if (flagGrabbedTeam != playerTeam)
-            {
-                teamFlagCarrier[playerTeam] = data->playerID;
-                carryingEnemyFlag[playerTeam] = flagGrabbedTeam;
-            }
-        }
-        break;
-
-        case bz_eFlagDroppedEvent:
-        {
-            bz_FlagDroppedEventData_V1 *data = (bz_FlagDroppedEventData_V1*)eventData;
-            bz_eTeamType playerTeam = bz_getPlayerTeam(data->playerID);
-            bz_eTeamType flagDroppedTeam = bzu_getTeamFromFlag(data->flagType);
-
-            if (flagDroppedTeam != playerTeam)
-            {
-                teamFlagCarrier[playerTeam] = -1;
-                carryingEnemyFlag[playerTeam] = eNoTeam;
-            }
+            teamHasCapped[teamCapping] = false;
         }
         break;
 
@@ -309,12 +282,14 @@ void AllHandsOnDeck::Event(bz_EventData *eventData)
 
             for (auto team : availableTeams)
             {
-                if (carryingEnemyFlag[team] == eNoTeam)
-                {
-                    continue;
-                }
+                int flagCarrier;
+                bz_eTeamType teamBeingCapped;
 
-                bz_triggerFlagCapture(teamFlagCarrier[team], team, carryingEnemyFlag[team]);
+                if (enoughHandsOnDeck(team, &flagCarrier, &teamBeingCapped))
+                {
+                    teamHasCapped[team] = true;
+                    bz_triggerFlagCapture(flagCarrier, team, teamBeingCapped);
+                }
             }
         }
         break;
@@ -459,16 +434,38 @@ bool AllHandsOnDeck::isPlayerOnDeck(int playerID)
     }
 
     DeckObject& targetDeck = getTargetDeck(playerID);
+    
+    bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: Checking player %s inside deck...", PLUGIN_NAME, pr->callsign.c_str());
 
-    // The player must match the following criteria
-    //   1. is inside the deck
-    //   2. is alive
-    //   3. is not jumping inside the deck
-    bool playerIsOnDeck = (targetDeck.pointInZone(pr->lastKnownState.pos) && pr->spawned && !pr->lastKnownState.falling);
+    if (!pr->spawned)
+    {
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is dead", PLUGIN_NAME, pr->callsign.c_str());
+        return false;
+    }
 
+    if (DEBUG_VERBOSITY <= bz_getDebugLevel())
+    {
+        float playerPos[3] = { pr->lastKnownState.pos[0], pr->lastKnownState.pos[1], pr->lastKnownState.pos[2] };
+
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is at location %.2f, %.2f, %.2f", PLUGIN_NAME, pr->callsign.c_str(), playerPos[0], playerPos[1], playerPos[2]);
+    }
+
+    bool playerInsideDeckZone = (targetDeck.pointInZone(pr->lastKnownState.pos));
+    bool playerIsNotJumping = !pr->lastKnownState.falling;
+    
+    if (!playerInsideDeckZone)
+    {
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is not inside deck zone", PLUGIN_NAME, pr->callsign.c_str());
+    }
+    
+    if (!playerIsNotJumping)
+    {
+        bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s is jumping inside the deck", PLUGIN_NAME, pr->callsign.c_str());
+    }
+    
     bz_freePlayerRecord(pr);
-
-    return playerIsOnDeck;
+    
+    return (playerInsideDeckZone && playerIsNotJumping);
 }
 
 DeckObject& AllHandsOnDeck::getTargetDeck(int playerID)
@@ -482,7 +479,7 @@ DeckObject& AllHandsOnDeck::getTargetDeck(int playerID)
 }
 
 // Check to see if there are enough players of a specified team on a deck
-bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
+bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_eTeamType *teamCapping)
 {
     int teamCount = 0, teamTotal = bz_getTeamCount(team);
 
@@ -491,6 +488,9 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
         return false;
     }
 
+    *flagCarrier = -1;
+    *teamCapping = eNoTeam;
+
     bz_APIIntList *playerList = bz_newIntList();
     bz_getPlayerIndexList(playerList);
 
@@ -498,13 +498,41 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team)
     {
         int playerID = playerList->get(i);
 
-        if (bz_getPlayerTeam(playerID) == team && isPlayerOnDeck(playerID))
+        // Ignore them if they don't belong to the team we're checking
+        if (bz_getPlayerTeam(playerID) != team)
         {
-            teamCount++;
+            continue;
+        }
+
+        if (!isPlayerOnDeck(playerID))
+        {
+            bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s [%s] not located on deck", PLUGIN_NAME, bz_getPlayerCallsign(playerID), bzu_GetTeamName(team));
+            bz_deleteIntList(playerList);
+            return false;
+        }
+
+        teamCount++;
+
+        // Don't override the current flag carrier if the team has multiple enemy flags
+        if (*flagCarrier == -1)
+        {
+            bz_eTeamType flag = bzu_getTeamFromFlag(bz_getPlayerFlag(playerID));
+
+            // They're holding a team flag and it's not their own team flag
+            if (flag != eNoTeam && flag != team)
+            {
+                bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s recorded with %s team flag", PLUGIN_NAME, bz_getPlayerCallsign(playerID), bzu_GetTeamName(flag));
+
+                *flagCarrier = playerID;
+                *teamCapping = flag;
+            }
         }
     }
 
     bz_deleteIntList(playerList);
+    
+    double currentPercentage = (teamCount / (double)teamTotal);
+    double requiredPercentage = getAhodPercentage();
 
-    return ((teamCount / (double)teamTotal) >= getAhodPercentage());
+    return (currentPercentage >= requiredPercentage) && (*flagCarrier != -1);
 }
