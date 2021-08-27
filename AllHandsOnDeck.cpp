@@ -511,14 +511,10 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
             continue;
         }
 
-        if (!isPlayerOnDeck(playerID))
+        if (isPlayerOnDeck(playerID))
         {
-            bz_debugMessagef(DEBUG_VERBOSITY, "VERBOSE :: %s :: player %s [%s] not located on deck", PLUGIN_NAME, bz_getPlayerCallsign(playerID), bzu_GetTeamName(team));
-            bz_deleteIntList(playerList);
-            return false;
+            teamCount++;
         }
-
-        teamCount++;
 
         // Don't override the current flag carrier if the team has multiple enemy flags
         if (*flagCarrier == -1)
