@@ -389,6 +389,13 @@ void AllHandsOnDeck::sendWelcomeMessage(int playerID)
         return;
     }
 
+    // Don't have a player send themselves this message if they don't have the "talk" permission. Otherwise, this will
+    // spam with "You can't talk!" messages
+    if (!bz_hasPerm(playerID, "talk"))
+    {
+        return;
+    }
+
     if (!introMessage.empty())
     {
         for (auto line : introMessage)
