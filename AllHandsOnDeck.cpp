@@ -37,8 +37,8 @@ const char* PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 1;
-const int REV = 2;
-const int BUILD = 52;
+const int REV = 3;
+const int BUILD = 53;
 
 enum class AhodGameMode
 {
@@ -506,15 +506,12 @@ bool AllHandsOnDeck::enoughHandsOnDeck(bz_eTeamType team, int *flagCarrier, bz_e
         int playerID = playerList->get(i);
 
         // Ignore them if they don't belong to the team we're checking
-        if (bz_getPlayerTeam(playerID) != team)
+        if (bz_getPlayerTeam(playerID) != team || !isPlayerOnDeck(playerID))
         {
             continue;
         }
 
-        if (isPlayerOnDeck(playerID))
-        {
-            teamCount++;
-        }
+        teamCount++;
 
         // Don't override the current flag carrier if the team has multiple enemy flags
         if (*flagCarrier == -1)
