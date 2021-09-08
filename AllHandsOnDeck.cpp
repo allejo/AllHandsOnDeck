@@ -37,8 +37,8 @@ const char* PLUGIN_NAME = "All Hands On Deck!";
 // Define plugin version numbering
 const int MAJOR = 1;
 const int MINOR = 1;
-const int REV = 2;
-const int BUILD = 52;
+const int REV = 3;
+const int BUILD = 53;
 
 enum class AhodGameMode
 {
